@@ -1,88 +1,67 @@
+import pandas as pd
 import geopandas as gpd
 import folium
 
-# 1. Definir o caminho do seu Geopackage
-gpkg_path = r"C:\Users\joaorodrigues\Downloads\Qgis\Sinop\Estacas.gpkg"
+# 1. Definir o caminho da planilha Excel
+excel_path = r"C:\Users\joaorodrigues\Downloads\Qgis\Sinop\Estacas.xlsx"
 
-# --- DICA DE ENGENHARIA ---
-# Um Geopackage pode ter várias camadas internas (layers). 
-# Caso você precise descobrir o nome exato das camadas dentro do seu arquivo, 
-# descomente as duas linhas abaixo para listá-las no terminal antes de rodar o resto:
-# import fiona
-# print("Camadas no arquivo:", fiona.listlayers(gpkg_path))
+# 2. Carregar os dados do Excel usando o Pandas
+df = pd.read_excel(excel_path)
 
+# 3. Criar o GeoDataFrame a partir das colunas X e Y (UTM 21S / SIRGAS 2000 -> EPSG:31981)
+gdf_estacas = gpd.GeoDataFrame(
+    df, 
+    geometry=gpd.points_from_xy(df['x'], df['y']), 
+    crs="EPSG:31981"
+)
 
-# 2. Carregar as camadas do Geopackage
-# (Substitua 'eixo_rodovia' e 'pontos_estacas' pelos nomes reais das suas camadas no GPKG)
-#gdf_eixo = gpd.read_file(gpkg_path, layer='eixo_rodovia')
-gdf_estacas = gpd.read_file(gpkg_path, layer='reprojetadoa')
-
-
-# 3. Reprojetar de UTM 21S (EPSG:31981) para Geográficas WGS84 (EPSG:4326)
-# Essencial para que o mapa web saiba plotar os elementos no local correto do globo
-#gdf_eixo_wgs84 = gdf_eixo.to_crs(epsg=4326)
+# 4. Reprojetar para Geográficas WGS84 (EPSG:4326) exigido pelo Folium
 gdf_estacas_wgs84 = gdf_estacas.to_crs(epsg=4326)
 
-
-# 4. Encontrar o centro geográfico do alinhamento para focar o mapa nele
+# 5. Encontrar o centro geográfico dos pontos para focar o mapa
 centro = gdf_estacas_wgs84.geometry.unary_union.centroid
-mapa = folium.Map(location=[centro.y, centro.x], zoom_start=13, tiles='OpenStreetMap')
-
-
-# 5. Adicionar o Alinhamento da Rodovia (Linha) ao mapa
-# Usamos o estilo azul escuro com espessura de 4 pixels para representar o eixo
-"""
-folium.GeoJson(
-    gdf_eixo_wgs84,
-    name="Eixo da Rodovia",
-    style_function=lambda x: {
-        'color': '#1a365d',
-        'weight': 4,
-        'opacity': 0.8
-    }
-).add_to(mapa)
-"""
+mapa = folium.Map(location=[centro.y, centro.x], zoom_start=14, tiles='OpenStreetMap')
 
 # 6. Adicionar as Estacas (Pontos) ao mapa
 for _, linha in gdf_estacas_wgs84.iterrows():
-    # Extrair as coordenadas reprojetadas (X=Longitude, Y=Latitude)
+    # Coordenadas em graus decimais obtidas após a reprojeção
     lon, lat = linha.geometry.x, linha.geometry.y
     
-    # Extrair os atributos textuais da tabela do Geopackage
-    # (Substitua 'nome_estaca' e 'status_obra' pelas colunas reais da sua tabela)
-    numero_estaca = linha.get('nome_estaca', 'N/A')
-    status_atual = linha.get('status_obra', 'Planejado')
+    # Extrair os atributos das colunas exatas da sua planilha
+    descricao = linha['descrição da estaca']
+    id_estaca = linha['id']
+    cota_z = linha['z']
+    x_utm = linha['x']
+    y_utm = linha['y']
     
-    # Definir uma lógica simples de cores para o avanço físico das estacas
-    cor_marcador = 'green' if status_atual == 'Concluído' else 'orange' if status_atual == 'Em Andamento' else 'red'
+    # Cor padrão para visualização (azul). 
+    # Se futuramente adicionar uma coluna de status, pode reativar a lógica de cores aqui.
+    cor_marcador = 'blue'
     
-    # Montar o balão de informações (Popup) formatado em HTML simples
+    # Montar o balão de informações (Popup) formatado em HTML
     popup_conteudo = f"""
-    <div style="font-family: Arial, sans-serif; font-size: 12px; min-width: 140px;">
-        <h4 style="margin: 0 0 5px 0; color: #1a365d;">Estaca: {numero_estaca}</h4>
-        <b>Status:</b> <span style="color: {cor_marcador}; font-weight: bold;">{status_atual}</span><br>
-        <b>Norte (UTM):</b> {linha.geometry.y:.2f}<br>
-        <b>Este (UTM):</b> {linha.geometry.x:.2f}
+    <div style="font-family: Arial, sans-serif; font-size: 12px; min-width: 160px;">
+        <h4 style="margin: 0 0 5px 0; color: #1a365d;">{descricao}</h4>
+        <b>ID:</b> {id_estaca}<br>
+        <b>Cota (Z):</b> {cota_z:.2f} m<br>
+        <b>Norte (Y UTM):</b> {y_utm:.2f}<br>
+        <b>Este (X UTM):</b> {x_utm:.2f}
     </div>
     """
     
-    # Inserir um círculo interativo para cada estaca no mapa
+    # Inserir o marcador circular no mapa
     folium.CircleMarker(
         location=[lat, lon],
-        radius=5,
+        radius=6,
         color=cor_marcador,
         fill=True,
         fill_color='white',
-        fill_opacity=0.9,
+        fill_opacity=0.8,
         weight=2,
         popup=folium.Popup(popup_conteudo, max_width=250),
-        tooltip=f"Estaca {numero_estaca}" # Texto rápido ao passar o mouse por cima
+        tooltip=str(descricao)
     ).add_to(mapa)
 
-
-# 7. Adicionar controle de camadas no canto superior direito do mapa
-folium.LayerControl().add_to(mapa)
-
-# 8. Salvar o mapa final como map.html para o seu GitHub Pages
-mapa.save('map.html')
-print("Dashboard Geospacial gerado com sucesso!")
+# 7. Salvar o mapa final como index.html (pronto para o fluxo do GitHub Pages)
+mapa.save('index.html')
+print("Dashboard gerado com sucesso a partir da planilha Excel!")
