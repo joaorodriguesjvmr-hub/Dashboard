@@ -14,23 +14,24 @@ gpkg_path = r"C:\Users\joaorodrigues\Downloads\Qgis\Sinop\Estacas.gpkg"
 
 # 2. Carregar as camadas do Geopackage
 # (Substitua 'eixo_rodovia' e 'pontos_estacas' pelos nomes reais das suas camadas no GPKG)
-gdf_eixo = gpd.read_file(gpkg_path, layer='eixo_rodovia')
-gdf_estacas = gpd.read_file(gpkg_path, layer='pontos_estacas')
+#gdf_eixo = gpd.read_file(gpkg_path, layer='eixo_rodovia')
+gdf_estacas = gpd.read_file(gpkg_path, layer='reprojetadoa')
 
 
 # 3. Reprojetar de UTM 21S (EPSG:31981) para Geográficas WGS84 (EPSG:4326)
 # Essencial para que o mapa web saiba plotar os elementos no local correto do globo
-gdf_eixo_wgs84 = gdf_eixo.to_crs(epsg=4326)
+#gdf_eixo_wgs84 = gdf_eixo.to_crs(epsg=4326)
 gdf_estacas_wgs84 = gdf_estacas.to_crs(epsg=4326)
 
 
 # 4. Encontrar o centro geográfico do alinhamento para focar o mapa nele
-centro = gdf_eixo_wgs84.geometry.unary_union.centroid
+centro = gdf_estacas_wgs84.geometry.unary_union.centroid
 mapa = folium.Map(location=[centro.y, centro.x], zoom_start=13, tiles='OpenStreetMap')
 
 
 # 5. Adicionar o Alinhamento da Rodovia (Linha) ao mapa
 # Usamos o estilo azul escuro com espessura de 4 pixels para representar o eixo
+"""
 folium.GeoJson(
     gdf_eixo_wgs84,
     name="Eixo da Rodovia",
@@ -40,7 +41,7 @@ folium.GeoJson(
         'opacity': 0.8
     }
 ).add_to(mapa)
-
+"""
 
 # 6. Adicionar as Estacas (Pontos) ao mapa
 for _, linha in gdf_estacas_wgs84.iterrows():
