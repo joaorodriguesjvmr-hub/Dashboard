@@ -40,7 +40,7 @@ folium.PolyLine(
     tooltip="Alinhamento Sequencial das Estacas"
 ).add_to(mapa)
 
-# 7. Criar uma camada separada para os pontos (essencial para controlar a visibilidade via Script)
+# 7. Criar uma camada separada para os pontos
 camada_pontos = folium.FeatureGroup(name="Estacas (Pontos)")
 
 # 8. Adicionar as Estacas (Pontos) à sua camada específica
@@ -76,30 +76,34 @@ for _, row in gdf_estacas_wgs84.iterrows():
 # Adiciona a camada de pontos ao mapa principal
 camada_pontos.add_to(mapa)
 
-# 9. Injetar JavaScript para controlar a visibilidade por escala (Visível apenas em Zoom >= 16)
+# 9. Injetar JavaScript SEGURO (Aguarda o carregamento completo da página para evitar tela em branco)
 codigo_js = f"""
-var mapaRef = {mapa.get_name()};
-var camadaRef = {camada_pontos.get_name()};
+window.addEventListener('load', function() {{
+    var mapaRef = {mapa.get_name()};
+    var camadaRef = {camada_pontos.get_name()};
 
-function controlarVisibilidade() {{
-    // Zoom 16 ou maior representa a aproximação de escala de 100m ou menos
-    if (mapaRef.getZoom() >= 16) {{
-        if (!mapaRef.hasLayer(camadaRef)) {{
-            mapaRef.addLayer(camadaRef);
-        }}
-    }} else {{
-        if (mapaRef.hasLayer(camadaRef)) {{
-            mapaRef.removeLayer(camadaRef);
+    function controlarVisibilidade() {{
+        // Exibe os pontos apenas se o zoom for igual ou maior que 16 (Escala próxima)
+        if (mapaRef.getZoom() >= 16) {{
+            if (!mapaRef.hasLayer(camadaRef)) {{
+                mapaRef.addLayer(camadaRef);
+            }}
+        }} else {{
+            if (mapaRef.hasLayer(camadaRef)) {{
+                mapaRef.removeLayer(camadaRef);
+            }}
         }}
     }}
-}}
 
-// Vincula a função ao evento de alteração de zoom do mapa
-mapaRef.on('zoomend', controlarVisibilidade);
-controlarVisibilidade(); // Executa a checagem na inicialização do mapa
+    // Aplica o filtro sempre que o usuário mudar o zoom do mapa
+    mapaRef.on('zoomend', controlarVisibilidade);
+    
+    // Executa a checagem pela primeira vez assim que o mapa carregar
+    controlarVisibilidade();
+}});
 """
 mapa.get_root().script.add_child(folium.Element(codigo_js))
 
 # 10. Salvar o mapa final como index.html
 mapa.save('index.html')
-print("Dashboard atualizado! Linhas criadas e pontos configurados para escala de 100m.")
+print("Dashboard gerado com correção de carregamento mapeada!")
