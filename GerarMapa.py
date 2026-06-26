@@ -2,36 +2,36 @@ import pandas as pd
 import geopandas as gpd
 import folium
 
-# 1. Definição dos caminhos dos arquivos Excel
+# ==========================================
+# FUNÇÃO DA ROTINA GEOESPACIAL (REUTILIZÁVEL)
+# ==========================================
+def carregar_pontos_excel(caminho_excel, crs_origem="EPSG:31981", crs_destino=4326):
+    """Lê uma planilha Excel com colunas x/y, converte em GeoDataFrame e reprojeta."""
+    df = pd.read_excel(caminho_excel)
+    
+    # Ordena pelo ID se a coluna existir (garante sequência para linhas/polígonos)
+    if 'id' in df.columns:
+        df = df.sort_values(by='id')
+        
+    gdf = gpd.GeoDataFrame(
+        df, 
+        geometry=gpd.points_from_xy(df['x'], df['y']), 
+        crs=crs_origem
+    )
+    return gdf.to_crs(epsg=crs_destino)
+
+# ==========================================
+# CONFIGURAÇÃO DE CAMINHOS E DADOS
+# ==========================================
 excel_estacas = r"C:\Users\joaorodrigues\Downloads\Qgis\Sinop\Estacas.xlsx"
-excel_emprestimos = r"C:\Users\joaorodrigues\Downloads\Qgis\Sinop\CaixasDeEmprestimo.xlsx"
+excel_emprestimos = r"C:\Users\joaorodrigues\Downloads\Qgis\Sinop\Caixas_Emprestimo.xlsx"
+
+# Chamadas limpas da função criada
+gdf_estacas_wgs84 = carregar_pontos_excel(excel_estacas)
+gdf_emp_wgs84 = carregar_pontos_excel(excel_emprestimos)
 
 # ==========================================
-# PARTE A: PROCESSAMENTO DAS ESTACAS (EIXO)
-# ==========================================
-df_estacas = pd.read_excel(excel_estacas).sort_values(by='id')
-
-gdf_estacas = gpd.GeoDataFrame(
-    df_estacas, 
-    geometry=gpd.points_from_xy(df_estacas['x'], df_estacas['y']), 
-    crs="EPSG:31981"
-)
-gdf_estacas_wgs84 = gdf_estacas.to_crs(epsg=4326)
-
-# ==========================================
-# PARTE B: PROCESSAMENTO DAS CAIXAS DE EMPRÉSTIMO
-# ==========================================
-df_emp = pd.read_excel(excel_emprestimos)
-
-gdf_emp = gpd.GeoDataFrame(
-    df_emp, 
-    geometry=gpd.points_from_xy(df_emp['x'], df_emp['y']), 
-    crs="EPSG:31981"
-)
-gdf_emp_wgs84 = gdf_emp.to_crs(epsg=4326)
-
-# ==========================================
-# PARTE C: CONFIGURAÇÃO DO MAPA BASE
+# CONFIGURAÇÃO DO MAPA BASE
 # ==========================================
 centro = gdf_estacas_wgs84.geometry.unary_union.centroid
 mapa = folium.Map(
@@ -63,32 +63,25 @@ for i in range(len(estacas_lista) - 1):
 # 2. Criar a camada das Caixas de Empréstimo (Polígonos)
 camada_caixas = folium.FeatureGroup(name="Caixas de Empréstimo")
 
-# Agrupa os dados pelo 'Name' da caixa para isolar os perímetros
 for nome_caixa, grupo in gdf_emp_wgs84.groupby('Name'):
-    # Ordena os pontos do grupo pelo 'id' para fechar o polígono na sequência correta
-    grupo_ordenado = grupo.sort_values(by='id')
+    coords_perimetro = [[row.geometry.y, row.geometry.x] for _, row in grupo.iterrows()]
     
-    # Extrai a lista de coordenadas [Latitude, Longitude] do perímetro
-    coords_perimetro = [[row.geometry.y, row.geometry.x] for _, row in grupo_ordenado.iterrows()]
-    
-    # Desenha a área se houver pelo menos 3 pontos para formar um polígono
     if len(coords_perimetro) >= 3:
         folium.Polygon(
             locations=coords_perimetro,
-            color='#d35400',       # Borda cor de terra (Rust)
+            color='#d35400',
             weight=3,
             fill=True,
-            fill_color='#e67e22',  # Preenchimento terracota semi-transparente
+            fill_color='#e67e22',
             fill_opacity=0.4,
             tooltip=f"Caixa de Empréstimo: {nome_caixa}"
         ).add_to(camada_caixas)
     else:
-        # Caso tenha apenas 2 pontos, desenha como linha de limite
         folium.PolyLine(
             locations=coords_perimetro,
             color='#d35400',
             weight=3,
-            tooltip=f"Limite Caixas: {nome_caixa} (Vértices insuficientes)"
+            tooltip=f"Limite Caixas: {nome_caixa}"
         ).add_to(camada_caixas)
 
 camada_caixas.add_to(mapa)
@@ -123,13 +116,10 @@ for _, row in gdf_estacas_wgs84.iterrows():
 camada_pontos.add_to(mapa)
 
 # ==========================================
-# PARTE D: CONTROLES E SCRIPTS DE INTERAÇÃO
+# CONTROLES E SCRIPTS DE INTERAÇÃO
 # ==========================================
-
-# Ativa o menu de ligar/desligar camadas no canto superior direito
 folium.LayerControl(position='topright').add_to(mapa)
 
-# Injeta o JavaScript para ocultar as estacas se o zoom for menor que 16 (Escala > 100m)
 codigo_js = f"""
 window.addEventListener('load', function() {{
     var mapaRef = {mapa.get_name()};
@@ -153,6 +143,5 @@ window.addEventListener('load', function() {{
 """
 mapa.get_root().script.add_child(folium.Element(codigo_js))
 
-# 4. Salvar o arquivo final
 mapa.save('index.html')
-print("Dashboard completo gerado! Rodovia e Caixas de Empréstimo integradas.")
+print("Dashboard otimizado gerado com sucesso!")
