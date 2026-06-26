@@ -24,7 +24,7 @@ def carregar_pontos_excel(caminho_excel, crs_origem="EPSG:31981", crs_destino=43
 # CONFIGURAÇÃO DE CAMINHOS E DADOS
 # ==========================================
 excel_estacas = r"C:\Users\joaorodrigues\Downloads\Qgis\Sinop\Estacas.xlsx"
-excel_emprestimos = r"C:\Users\joaorodrigues\Downloads\Qgis\Sinop\CCaixasDeEmprestimo.xlsx"
+excel_emprestimos = r"C:\Users\joaorodrigues\Downloads\Qgis\Sinop\CaixasDeEmprestimo.xlsx"
 
 # Chamadas limpas da função criada
 gdf_estacas_wgs84 = carregar_pontos_excel(excel_estacas)
