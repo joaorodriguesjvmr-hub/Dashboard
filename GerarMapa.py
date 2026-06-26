@@ -20,22 +20,27 @@ gdf_estacas_wgs84 = gdf_estacas.to_crs(epsg=4326)
 
 # 5. Encontrar o centro geográfico dos pontos para focar o mapa
 centro = gdf_estacas_wgs84.geometry.unary_union.centroid
-mapa = folium.Map(location=[centro.y, centro.x], zoom_start=14, tiles='OpenStreetMap')
+
+# Adicionado o parâmetro control_scale=True para ativar a barra de escala
+mapa = folium.Map(
+    location=[centro.y, centro.x], 
+    zoom_start=14, 
+    tiles='OpenStreetMap',
+    control_scale=True
+)
 
 # 6. Adicionar as Estacas (Pontos) ao mapa
-for _, linha in gdf_estacas_wgs84.iterrows():
+for _, text in gdf_estacas_wgs84.iterrows():
     # Coordenadas em graus decimais obtidas após a reprojeção
-    lon, lat = linha.geometry.x, linha.geometry.y
+    lon, lat = text.geometry.x, text.geometry.y
     
     # Extrair os atributos das colunas exatas da sua planilha
-    descricao = linha['Name']
-    id_estaca = linha['id']
-    #cota_z = linha['z']
-    x_utm = linha['x']
-    y_utm = linha['y']
+    descricao = text['Name']
+    id_estaca = text['id']
+    x_utm = text['x']
+    y_utm = text['y']
     
-    # Cor padrão para visualização (azul). 
-    # Se futuramente adicionar uma coluna de status, pode reativar a lógica de cores aqui.
+    # Cor padrão para visualização (azul)
     cor_marcador = 'blue'
     
     # Montar o balão de informações (Popup) formatado em HTML
@@ -43,7 +48,6 @@ for _, linha in gdf_estacas_wgs84.iterrows():
     <div style="font-family: Arial, sans-serif; font-size: 12px; min-width: 160px;">
         <h4 style="margin: 0 0 5px 0; color: #1a365d;">{descricao}</h4>
         <b>ID:</b> {id_estaca}<br>
-        <b>Cota (Z):</b>  m<br>
         <b>Norte (Y UTM):</b> {y_utm:.2f}<br>
         <b>Este (X UTM):</b> {x_utm:.2f}
     </div>
@@ -64,4 +68,4 @@ for _, linha in gdf_estacas_wgs84.iterrows():
 
 # 7. Salvar o mapa final como index.html (pronto para o fluxo do GitHub Pages)
 mapa.save('index.html')
-print("Dashboard gerado com sucesso a partir da planilha Excel!")
+print("Dashboard gerado com sucesso com barra de escala inclusa!")
