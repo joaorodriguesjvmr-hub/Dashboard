@@ -29,16 +29,30 @@ mapa = folium.Map(
     control_scale=True
 )
 
-# 6. Criar as Linhas interligando os pontos em sequência
-coordenadas_linha = [[row.geometry.y, row.geometry.x] for _, row in gdf_estacas_wgs84.iterrows()]
+# 6. Criar Linhas quebradas em segmentos entre estacas consecutivas
+# Convertemos para lista para conseguir acessar o elemento atual (i) e o próximo (i+1)
+estacas_lista = list(gdf_estacas_wgs84.iterrows())
 
-folium.PolyLine(
-    coordenadas_linha,
-    color='#1a365d',
-    weight=4,
-    opacity=0.8,
-    tooltip="Alinhamento Sequencial das Estacas"
-).add_to(mapa)
+for i in range(len(estacas_lista) - 1):
+    _, estaca_atual = estacas_lista[i]
+    _, estaca_proxima = estacas_lista[i+1]
+    
+    # Coordenadas do segmento (Início e Fim)
+    coord_inicio = [estaca_atual.geometry.y, estaca_atual.geometry.x]
+    coord_fim = [estaca_proxima.geometry.y, estaca_proxima.geometry.x]
+    coords_segmento = [coord_inicio, coord_fim]
+    
+    # Define o nome do segmento baseado no Name da estaca de menor id (estaca_atual)
+    nome_segmento = estaca_atual['Name']
+    
+    # Plota o segmento individual no mapa
+    folium.PolyLine(
+        coords_segmento,
+        color='#1a365d',
+        weight=4,
+        opacity=0.8,
+        tooltip=f"Segmento: {nome_segmento}" # Exibe o nome ao passar o mouse sobre a linha
+    ).add_to(mapa)
 
 # 7. Criar uma camada separada para os pontos
 camada_pontos = folium.FeatureGroup(name="Estacas (Pontos)")
@@ -76,14 +90,13 @@ for _, row in gdf_estacas_wgs84.iterrows():
 # Adiciona a camada de pontos ao mapa principal
 camada_pontos.add_to(mapa)
 
-# 9. Injetar JavaScript SEGURO (Aguarda o carregamento completo da página para evitar tela em branco)
+# 9. Injetar JavaScript SEGURO para controlar a visibilidade por escala (Zoom >= 16)
 codigo_js = f"""
 window.addEventListener('load', function() {{
     var mapaRef = {mapa.get_name()};
     var camadaRef = {camada_pontos.get_name()};
 
     function controlarVisibilidade() {{
-        // Exibe os pontos apenas se o zoom for igual ou maior que 16 (Escala próxima)
         if (mapaRef.getZoom() >= 16) {{
             if (!mapaRef.hasLayer(camadaRef)) {{
                 mapaRef.addLayer(camadaRef);
@@ -95,10 +108,7 @@ window.addEventListener('load', function() {{
         }}
     }}
 
-    // Aplica o filtro sempre que o usuário mudar o zoom do mapa
     mapaRef.on('zoomend', controlarVisibilidade);
-    
-    // Executa a checagem pela primeira vez assim que o mapa carregar
     controlarVisibilidade();
 }});
 """
@@ -106,4 +116,4 @@ mapa.get_root().script.add_child(folium.Element(codigo_js))
 
 # 10. Salvar o mapa final como index.html
 mapa.save('index.html')
-print("Dashboard gerado com correção de carregamento mapeada!")
+print("Dashboard atualizado com sucesso com segmentos individuais por ID!")
