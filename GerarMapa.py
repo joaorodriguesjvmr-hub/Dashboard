@@ -28,9 +28,9 @@ for _, linha in gdf_estacas_wgs84.iterrows():
     lon, lat = linha.geometry.x, linha.geometry.y
     
     # Extrair os atributos das colunas exatas da sua planilha
-    descricao = linha['descrição da estaca']
+    descricao = linha['Name']
     id_estaca = linha['id']
-    cota_z = linha['z']
+    #cota_z = linha['z']
     x_utm = linha['x']
     y_utm = linha['y']
     
@@ -43,7 +43,7 @@ for _, linha in gdf_estacas_wgs84.iterrows():
     <div style="font-family: Arial, sans-serif; font-size: 12px; min-width: 160px;">
         <h4 style="margin: 0 0 5px 0; color: #1a365d;">{descricao}</h4>
         <b>ID:</b> {id_estaca}<br>
-        <b>Cota (Z):</b> {cota_z:.2f} m<br>
+        <b>Cota (Z):</b>  m<br>
         <b>Norte (Y UTM):</b> {y_utm:.2f}<br>
         <b>Este (X UTM):</b> {x_utm:.2f}
     </div>
