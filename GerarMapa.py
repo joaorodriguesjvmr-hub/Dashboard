@@ -1,18 +1,16 @@
 import pandas as pd
 import geopandas as gpd
 import folium
+from branca.element import Element
 
 # ==========================================
 # FUNÇÃO DA ROTINA GEOESPACIAL (REUTILIZÁVEL)
 # ==========================================
 def carregar_pontos_excel(caminho_excel, crs_origem="EPSG:31981", crs_destino=4326):
-    """Lê uma planilha Excel com colunas x/y, converte em GeoDataFrame e reprojeta."""
+    """Lê planilha Excel com x/y, converte em GeoDataFrame e reprojeta."""
     df = pd.read_excel(caminho_excel)
-    
-    # Ordena pelo ID se a coluna existir (garante sequência para linhas/polígonos)
     if 'id' in df.columns:
         df = df.sort_values(by='id')
-        
     gdf = gpd.GeoDataFrame(
         df, 
         geometry=gpd.points_from_xy(df['x'], df['y']), 
@@ -21,14 +19,20 @@ def carregar_pontos_excel(caminho_excel, crs_origem="EPSG:31981", crs_destino=43
     return gdf.to_crs(epsg=crs_destino)
 
 # ==========================================
-# CONFIGURAÇÃO DE CAMINHOS E DADOS
+# CONFIGURAÇÃO DE DADOS E CAMINHOS
 # ==========================================
+prefixo_icones = r"C:\Users\joaorodrigues\Downloads\Maquinas\Convertido\\" 
+
 excel_estacas = r"C:\Users\joaorodrigues\Downloads\Qgis\Sinop\Estacas.xlsx"
 excel_emprestimos = r"C:\Users\joaorodrigues\Downloads\Qgis\Sinop\CaixasDeEmprestimo.xlsx"
+excel_frota = r"C:\Users\joaorodrigues\Downloads\Qgis\Sinop\Equipamentos.xlsx"
 
-# Chamadas limpas da função criada
+# Carrega os dados geográficos e analíticos
 gdf_estacas_wgs84 = carregar_pontos_excel(excel_estacas)
 gdf_emp_wgs84 = carregar_pontos_excel(excel_emprestimos)
+
+# Lê a nova planilha simplificada de frota (apenas 2 colunas: 'imagem' e 'Name')
+df_frota = pd.read_excel(excel_frota)
 
 # ==========================================
 # CONFIGURAÇÃO DO MAPA BASE
@@ -36,7 +40,7 @@ gdf_emp_wgs84 = carregar_pontos_excel(excel_emprestimos)
 centro = gdf_estacas_wgs84.geometry.unary_union.centroid
 mapa = folium.Map(
     location=[centro.y, centro.x], 
-    zoom_start=14, 
+    zoom_start=16, 
     tiles='OpenStreetMap',
     control_scale=True
 )
@@ -60,9 +64,8 @@ for i in range(len(estacas_lista) - 1):
         tooltip=f"Segmento: {estaca_atual['Name']}"
     ).add_to(mapa)
 
-# 2. Criar a camada das Caixas de Empréstimo (Polígonos)
+# 2. Desenhar as Caixas de Empréstimo (Polígonos)
 camada_caixas = folium.FeatureGroup(name="Caixas de Empréstimo")
-
 for nome_caixa, grupo in gdf_emp_wgs84.groupby('Name'):
     coords_perimetro = [[row.geometry.y, row.geometry.x] for _, row in grupo.iterrows()]
     
@@ -83,15 +86,11 @@ for nome_caixa, grupo in gdf_emp_wgs84.groupby('Name'):
             weight=3,
             tooltip=f"Limite Caixas: {nome_caixa}"
         ).add_to(camada_caixas)
-
 camada_caixas.add_to(mapa)
 
-# 3. Criar a camada das Estacas (Pontos) com controle de escala
+# 3. Criar a camada de Pontos de Estaca
 camada_pontos = folium.FeatureGroup(name="Estacas (Pontos)")
-
 for _, row in gdf_estacas_wgs84.iterrows():
-    lon, lat = row.geometry.x, row.geometry.y
-    
     popup_conteudo = f"""
     <div style="font-family: Arial, sans-serif; font-size: 12px; min-width: 160px;">
         <h4 style="margin: 0 0 5px 0; color: #1a365d;">{row['Name']}</h4>
@@ -100,9 +99,8 @@ for _, row in gdf_estacas_wgs84.iterrows():
         <b>Este (X UTM):</b> {row['x']:.2f}
     </div>
     """
-    
     folium.CircleMarker(
-        location=[lat, lon],
+        location=[row.geometry.y, row.geometry.x],
         radius=6,
         color='blue',
         fill=True,
@@ -112,8 +110,51 @@ for _, row in gdf_estacas_wgs84.iterrows():
         popup=folium.Popup(popup_conteudo, max_width=250),
         tooltip=str(row['Name'])
     ).add_to(camada_pontos)
-
 camada_pontos.add_to(mapa)
+
+# ==========================================
+# NOVA LÓGICA: CRUZA FROTA X ESTACAS PELO 'Name'
+# ==========================================
+camada_frota = folium.FeatureGroup(name="Equipamento Ativo (Teste)")
+
+for _, row_frota in df_frota.iterrows():
+    arquivo_icone = row_frota['imagem']
+    nome_estaca_alvo = row_frota['Name']
+    
+    # Busca a estaca correspondente na planilha de estacas georreferenciadas
+    estaca_correspondente = gdf_estacas_wgs84[gdf_estacas_wgs84['Name'] == nome_estaca_alvo]
+    
+    # Se encontrar a estaca, extrai a coordenada e plota o ícone customizado
+    if not estaca_correspondente.empty:
+        # Pega a geometria (ponto) da estaca encontrada
+        ponto_geom = estaca_correspondente.geometry.iloc[0]
+        lat_equip = ponto_geom.y
+        lon_equip = ponto_geom.x
+        
+        caminho_completo_icone = prefixo_icones + arquivo_icone
+        
+        popup_frota = f"""
+        <div style="font-family: Arial, sans-serif; font-size: 12px; min-width: 160px;">
+            <h4 style="margin: 0 0 5px 0; color: #1a365d;">Ativo em Frente de Serviço</h4>
+            <b>Equipamento:</b> {arquivo_icone.split('.')[0].upper()}<br>
+            <b>Posicionado na:</b> {nome_estaca_alvo}<br>
+        </div>
+        """
+        
+        custom_icon = folium.CustomIcon(
+            caminho_completo_icone,
+            icon_size=(42, 42),
+            icon_anchor=(21, 42)
+        )
+        
+        folium.Marker(
+            location=[lat_equip, lon_equip],
+            icon=custom_icon,
+            popup=folium.Popup(popup_frota, max_width=250),
+            tooltip=f"{arquivo_icone.split('.')[0].capitalize()} na {nome_estaca_alvo}"
+        ).add_to(camada_frota)
+
+camada_frota.add_to(mapa)
 
 # ==========================================
 # CONTROLES E SCRIPTS DE INTERAÇÃO
@@ -143,5 +184,6 @@ window.addEventListener('load', function() {{
 """
 mapa.get_root().script.add_child(folium.Element(codigo_js))
 
+# Salva o arquivo pronto para o deploy automatizado
 mapa.save('index.html')
-print("Dashboard otimizado gerado com sucesso!")
+print("Dashboard dinâmico gerado! O posicionamento foi calculado por cruzamento de estacas.")
