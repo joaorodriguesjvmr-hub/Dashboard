@@ -31,7 +31,7 @@ excel_frota = r"C:\Users\joaorodrigues\Downloads\Qgis\Sinop\Equipamentos.xlsx"
 gdf_estacas_wgs84 = carregar_pontos_excel(excel_estacas)
 gdf_emp_wgs84 = carregar_pontos_excel(excel_emprestimos)
 
-# Lê a nova planilha simplificada de frota (apenas 2 colunas: 'imagem' e 'Name')
+# Lê a planilha de frota (2 colunas: 'imagem' e 'Name')
 df_frota = pd.read_excel(excel_frota)
 
 # ==========================================
@@ -112,18 +112,43 @@ for _, row in gdf_estacas_wgs84.iterrows():
     ).add_to(camada_pontos)
 camada_pontos.add_to(mapa)
 
-# 4. Criar a camada de Frota (Equipamentos)
+# ==========================================
+# LÓGICA DE FROTA ATUALIZADA: POSICIONAMENTO NO PONTO MÉDIO
+# ==========================================
 camada_frota = folium.FeatureGroup(name="Equipamento Ativo (Teste)")
+
 for _, row_frota in df_frota.iterrows():
     arquivo_icone = row_frota['imagem']
     nome_estaca_alvo = row_frota['Name']
     
-    estaca_correspondente = gdf_estacas_wgs84[gdf_estacas_wgs84['Name'] == nome_estaca_alvo]
+    # 1. Encontrar o índice da estaca informada na lista ordenada
+    estaca_index_list = gdf_estacas_wgs84[gdf_estacas_wgs84['Name'] == nome_estaca_alvo].index
     
-    if not estaca_correspondente.empty:
-        ponto_geom = estaca_correspondente.geometry.iloc[0]
-        lat_equip = ponto_geom.y
-        lon_equip = ponto_geom.x
+    if not estaca_index_list.empty:
+        idx_atual = estaca_index_list[0]
+        
+        # Encontra a posição numérica dessa estaca dentro da nossa lista sequencial de tuplas
+        posicao_na_lista = None
+        for k, (original_idx, _) in enumerate(estacas_lista):
+            if original_idx == idx_atual:
+                posicao_na_lista = k
+                break
+        
+        # Se houver uma estaca seguinte na sequência, calcula o ponto médio do segmento
+        if posicao_na_lista is not None and posicao_na_lista < len(estacas_lista) - 1:
+            _, estaca_atual = estacas_lista[posicao_na_lista]
+            _, estaca_proxima = estacas_lista[posicao_na_lista + 1]
+            
+            # Interpolação matemática para achar o ponto central do trecho
+            lat_equip = (estaca_atual.geometry.y + estaca_proxima.geometry.y) / 2
+            lon_equip = (estaca_atual.geometry.x + estaca_proxima.geometry.x) / 2
+            nome_segmento = f"{estaca_atual['Name']} → {estaca_proxima['Name']}"
+        else:
+            # Caso seja a última estaca da rodovia (não tem próxima), plota em cima dela mesma
+            _, estaca_atual = estacas_lista[posicao_na_lista]
+            lat_equip = estaca_atual.geometry.y
+            lon_equip = estaca_atual.geometry.x
+            nome_segmento = f"Final da linha ({estaca_atual['Name']})"
         
         caminho_completo_icone = prefixo_icones + arquivo_icone
         
@@ -131,21 +156,25 @@ for _, row_frota in df_frota.iterrows():
         <div style="font-family: Arial, sans-serif; font-size: 12px; min-width: 160px;">
             <h4 style="margin: 0 0 5px 0; color: #1a365d;">Ativo em Frente de Serviço</h4>
             <b>Equipamento:</b> {arquivo_icone.split('.')[0].upper()}<br>
+            <b>Segmento Alvo:</b> {nome_segmento}<br>
         </div>
         """
         
+        # Modificado icon_anchor para (32, 32) para alinhar pelo CENTRO geométrico do PNG
+        # Isso faz com que a máquina "sente" perfeitamente centralizada sobre o meio da linha
         custom_icon = folium.CustomIcon(
             caminho_completo_icone,
             icon_size=(64, 64),
-            icon_anchor=(32, 64)
+            icon_anchor=(32, 32)
         )
         
         folium.Marker(
             location=[lat_equip, lon_equip],
             icon=custom_icon,
             popup=folium.Popup(popup_frota, max_width=250),
-            tooltip=f"{arquivo_icone.split('.')[0].capitalize()}"
+            tooltip=f"{arquivo_icone.split('.')[0].capitalize()} no segmento {nome_segmento}"
         ).add_to(camada_frota)
+
 camada_frota.add_to(mapa)
 
 # ==========================================
@@ -153,7 +182,6 @@ camada_frota.add_to(mapa)
 # ==========================================
 folium.LayerControl(position='topright').add_to(mapa)
 
-# Correção feita aqui: substituídos os '#' por '//' nos comentários do JavaScript
 codigo_js = f"""
 window.addEventListener('load', function() {{
     var mapaRef = {mapa.get_name()};
@@ -193,4 +221,4 @@ window.addEventListener('load', function() {{
 mapa.get_root().script.add_child(folium.Element(codigo_js))
 
 mapa.save('index.html')
-print("Dashboard dinâmico corrigido e gerado com sucesso!")
+print("Dashboard atualizado com os ícones centralizados nos segmentos de linha!")
