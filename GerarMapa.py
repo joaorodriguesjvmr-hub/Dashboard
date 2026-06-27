@@ -26,13 +26,15 @@ prefixo_icones = r"C:\Users\joaorodrigues\Downloads\Maquinas\Convertido\sem bg\\
 excel_estacas = r"C:\Users\joaorodrigues\Downloads\Qgis\Sinop\Estacas.xlsx"
 excel_emprestimos = r"C:\Users\joaorodrigues\Downloads\Qgis\Sinop\CaixasDeEmprestimo.xlsx"
 excel_frota = r"C:\Users\joaorodrigues\Downloads\Qgis\Sinop\Equipamentos.xlsx"
+geojson_poligono = r"C:\Users\joaorodrigues\Downloads\Qgis\Sinop\PoligonoDup01.geojson"
 
-# Carrega os dados geográficos e analíticos
+# Carrega os dados geográficos e analíticos (Excel)
 gdf_estacas_wgs84 = carregar_pontos_excel(excel_estacas)
 gdf_emp_wgs84 = carregar_pontos_excel(excel_emprestimos)
-
-# Lê a planilha de frota (2 colunas: 'imagem' e 'Name')
 df_frota = pd.read_excel(excel_frota)
+
+# Carrega o arquivo GeoJSON e garante a reprojeção para WGS84
+gdf_poligono_wgs84 = gpd.read_file(geojson_poligono).to_crs(epsg=4326)
 
 # ==========================================
 # CONFIGURAÇÃO DO MAPA BASE
@@ -88,7 +90,21 @@ for nome_caixa, grupo in gdf_emp_wgs84.groupby('Name'):
         ).add_to(camada_caixas)
 camada_caixas.add_to(mapa)
 
-# 3. Criar a camada de Pontos de Estaca
+# NOVOS DADOS: 3. Desenhar a camada do GeoJSON (Polígono Dup 01)
+camada_poligono_dup = folium.FeatureGroup(name="Polígono Dup 01")
+folium.GeoJson(
+    gdf_poligono_wgs84,
+    style_function=lambda x: {
+        'fillColor': '#9b59b6',  # Preenchimento Roxo Claro
+        'color': '#8e44ad',      # Borda Roxa
+        'weight': 3,
+        'fillOpacity': 0.4
+    },
+    tooltip="Polígono Dup 01"
+).add_to(camada_poligono_dup)
+camada_poligono_dup.add_to(mapa)
+
+# 4. Criar a camada de Pontos de Estaca
 camada_pontos = folium.FeatureGroup(name="Estacas (Pontos)")
 for _, row in gdf_estacas_wgs84.iterrows():
     popup_conteudo = f"""
@@ -112,39 +128,29 @@ for _, row in gdf_estacas_wgs84.iterrows():
     ).add_to(camada_pontos)
 camada_pontos.add_to(mapa)
 
-# ==========================================
-# LÓGICA DE FROTA ATUALIZADA: POSICIONAMENTO NO PONTO MÉDIO
-# ==========================================
+# 5. Criar a camada de Frota (Equipamentos com interpolação de ponto médio)
 camada_frota = folium.FeatureGroup(name="Equipamento Ativo (Teste)")
-
 for _, row_frota in df_frota.iterrows():
     arquivo_icone = row_frota['imagem']
     nome_estaca_alvo = row_frota['Name']
     
-    # 1. Encontrar o índice da estaca informada na lista ordenada
     estaca_index_list = gdf_estacas_wgs84[gdf_estacas_wgs84['Name'] == nome_estaca_alvo].index
     
     if not estaca_index_list.empty:
         idx_atual = estaca_index_list[0]
-        
-        # Encontra a posição numérica dessa estaca dentro da nossa lista sequencial de tuplas
         posicao_na_lista = None
         for k, (original_idx, _) in enumerate(estacas_lista):
             if original_idx == idx_atual:
                 posicao_na_lista = k
                 break
         
-        # Se houver uma estaca seguinte na sequência, calcula o ponto médio do segmento
         if posicao_na_lista is not None and posicao_na_lista < len(estacas_lista) - 1:
             _, estaca_atual = estacas_lista[posicao_na_lista]
             _, estaca_proxima = estacas_lista[posicao_na_lista + 1]
-            
-            # Interpolação matemática para achar o ponto central do trecho
             lat_equip = (estaca_atual.geometry.y + estaca_proxima.geometry.y) / 2
             lon_equip = (estaca_atual.geometry.x + estaca_proxima.geometry.x) / 2
             nome_segmento = f"{estaca_atual['Name']} → {estaca_proxima['Name']}"
         else:
-            # Caso seja a última estaca da rodovia (não tem próxima), plota em cima dela mesma
             _, estaca_atual = estacas_lista[posicao_na_lista]
             lat_equip = estaca_atual.geometry.y
             lon_equip = estaca_atual.geometry.x
@@ -160,8 +166,6 @@ for _, row_frota in df_frota.iterrows():
         </div>
         """
         
-        # Modificado icon_anchor para (32, 32) para alinhar pelo CENTRO geométrico do PNG
-        # Isso faz com que a máquina "sente" perfeitamente centralizada sobre o meio da linha
         custom_icon = folium.CustomIcon(
             caminho_completo_icone,
             icon_size=(64, 64),
@@ -174,7 +178,6 @@ for _, row_frota in df_frota.iterrows():
             popup=folium.Popup(popup_frota, max_width=250),
             tooltip=f"{arquivo_icone.split('.')[0].capitalize()} no segmento {nome_segmento}"
         ).add_to(camada_frota)
-
 camada_frota.add_to(mapa)
 
 # ==========================================
@@ -220,5 +223,6 @@ window.addEventListener('load', function() {{
 """
 mapa.get_root().script.add_child(folium.Element(codigo_js))
 
+# Salva o arquivo final
 mapa.save('index.html')
-print("Dashboard atualizado com os ícones centralizados nos segmentos de linha!")
+print("Dashboard atualizado com sucesso! Arquivo GeoJSON integrado e estilizado.")
