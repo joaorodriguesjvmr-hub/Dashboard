@@ -40,7 +40,7 @@ df_frota = pd.read_excel(excel_frota)
 centro = gdf_estacas_wgs84.geometry.unary_union.centroid
 mapa = folium.Map(
     location=[centro.y, centro.x], 
-    zoom_start=14, # Inicializa em Zoom 14 para já mostrar o eixo e os ícones
+    zoom_start=14, 
     tiles='OpenStreetMap',
     control_scale=True
 )
@@ -137,7 +137,7 @@ for _, row_frota in df_frota.iterrows():
         custom_icon = folium.CustomIcon(
             caminho_completo_icone,
             icon_size=(64, 64),
-            icon_anchor=(32, 64) # Ajustado sutilmente para centralizar a base do ícone 64x64
+            icon_anchor=(32, 64)
         )
         
         folium.Marker(
@@ -153,7 +153,7 @@ camada_frota.add_to(mapa)
 # ==========================================
 folium.LayerControl(position='topright').add_to(mapa)
 
-# JavaScript atualizado para gerenciar a visibilidade de múltiplas camadas por escala
+# Correção feita aqui: substituídos os '#' por '//' nos comentários do JavaScript
 codigo_js = f"""
 window.addEventListener('load', function() {{
     var mapaRef = {mapa.get_name()};
@@ -163,7 +163,7 @@ window.addEventListener('load', function() {{
     function controlarVisibilidade() {{
         var zoomAtual = mapaRef.getZoom();
 
-        # Regra 1: Ícones dos Equipamentos aparecem a partir de 1km (Zoom >= 14)
+        // Regra 1: Ícones dos Equipamentos aparecem a partir de 1km (Zoom >= 14)
         if (zoomAtual >= 14) {{
             if (!mapaRef.hasLayer(camadaFrotaRef)) {{
                 mapaRef.addLayer(camadaFrotaRef);
@@ -174,7 +174,7 @@ window.addEventListener('load', function() {{
             }}
         }}
 
-        # Regra 2: Pontos das Estacas aparecem apenas a partir de 100m (Zoom >= 16)
+        // Regra 2: Pontos das Estacas aparecem apenas a partir de 100m (Zoom >= 16)
         if (zoomAtual >= 16) {{
             if (!mapaRef.hasLayer(camadaPontosRef)) {{
                 mapaRef.addLayer(camadaPontosRef);
@@ -192,6 +192,5 @@ window.addEventListener('load', function() {{
 """
 mapa.get_root().script.add_child(folium.Element(codigo_js))
 
-# Salva o arquivo pronto para o deploy
 mapa.save('index.html')
-print("Dashboard atualizado! Controle de visibilidade calibrado para 1km e 100m.")
+print("Dashboard dinâmico corrigido e gerado com sucesso!")
