@@ -40,7 +40,7 @@ df_frota = pd.read_excel(excel_frota)
 centro = gdf_estacas_wgs84.geometry.unary_union.centroid
 mapa = folium.Map(
     location=[centro.y, centro.x], 
-    zoom_start=16, 
+    zoom_start=14, # Inicializa em Zoom 14 para já mostrar o eixo e os ícones
     tiles='OpenStreetMap',
     control_scale=True
 )
@@ -112,21 +112,15 @@ for _, row in gdf_estacas_wgs84.iterrows():
     ).add_to(camada_pontos)
 camada_pontos.add_to(mapa)
 
-# ==========================================
-# NOVA LÓGICA: CRUZA FROTA X ESTACAS PELO 'Name'
-# ==========================================
+# 4. Criar a camada de Frota (Equipamentos)
 camada_frota = folium.FeatureGroup(name="Equipamento Ativo (Teste)")
-
 for _, row_frota in df_frota.iterrows():
     arquivo_icone = row_frota['imagem']
     nome_estaca_alvo = row_frota['Name']
     
-    # Busca a estaca correspondente na planilha de estacas georreferenciadas
     estaca_correspondente = gdf_estacas_wgs84[gdf_estacas_wgs84['Name'] == nome_estaca_alvo]
     
-    # Se encontrar a estaca, extrai a coordenada e plota o ícone customizado
     if not estaca_correspondente.empty:
-        # Pega a geometria (ponto) da estaca encontrada
         ponto_geom = estaca_correspondente.geometry.iloc[0]
         lat_equip = ponto_geom.y
         lon_equip = ponto_geom.x
@@ -143,7 +137,7 @@ for _, row_frota in df_frota.iterrows():
         custom_icon = folium.CustomIcon(
             caminho_completo_icone,
             icon_size=(64, 64),
-            icon_anchor=(21, 42)
+            icon_anchor=(32, 64) # Ajustado sutilmente para centralizar a base do ícone 64x64
         )
         
         folium.Marker(
@@ -152,7 +146,6 @@ for _, row_frota in df_frota.iterrows():
             popup=folium.Popup(popup_frota, max_width=250),
             tooltip=f"{arquivo_icone.split('.')[0].capitalize()}"
         ).add_to(camada_frota)
-
 camada_frota.add_to(mapa)
 
 # ==========================================
@@ -160,19 +153,35 @@ camada_frota.add_to(mapa)
 # ==========================================
 folium.LayerControl(position='topright').add_to(mapa)
 
+# JavaScript atualizado para gerenciar a visibilidade de múltiplas camadas por escala
 codigo_js = f"""
 window.addEventListener('load', function() {{
     var mapaRef = {mapa.get_name()};
-    var camadaRef = {camada_pontos.get_name()};
+    var camadaPontosRef = {camada_pontos.get_name()};
+    var camadaFrotaRef = {camada_frota.get_name()};
 
     function controlarVisibilidade() {{
-        if (mapaRef.getZoom() >= 16) {{
-            if (!mapaRef.hasLayer(camadaRef)) {{
-                mapaRef.addLayer(camadaRef);
+        var zoomAtual = mapaRef.getZoom();
+
+        # Regra 1: Ícones dos Equipamentos aparecem a partir de 1km (Zoom >= 14)
+        if (zoomAtual >= 14) {{
+            if (!mapaRef.hasLayer(camadaFrotaRef)) {{
+                mapaRef.addLayer(camadaFrotaRef);
             }}
         }} else {{
-            if (mapaRef.hasLayer(camadaRef)) {{
-                mapaRef.removeLayer(camadaRef);
+            if (mapaRef.hasLayer(camadaFrotaRef)) {{
+                mapaRef.removeLayer(camadaFrotaRef);
+            }}
+        }}
+
+        # Regra 2: Pontos das Estacas aparecem apenas a partir de 100m (Zoom >= 16)
+        if (zoomAtual >= 16) {{
+            if (!mapaRef.hasLayer(camadaPontosRef)) {{
+                mapaRef.addLayer(camadaPontosRef);
+            }}
+        }} else {{
+            if (mapaRef.hasLayer(camadaPontosRef)) {{
+                mapaRef.removeLayer(camadaPontosRef);
             }}
         }}
     }}
@@ -183,6 +192,6 @@ window.addEventListener('load', function() {{
 """
 mapa.get_root().script.add_child(folium.Element(codigo_js))
 
-# Salva o arquivo pronto para o deploy automatizado
+# Salva o arquivo pronto para o deploy
 mapa.save('index.html')
-print("Dashboard dinâmico gerado! O posicionamento foi calculado por cruzamento de estacas.")
+print("Dashboard atualizado! Controle de visibilidade calibrado para 1km e 100m.")
