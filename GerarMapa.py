@@ -27,14 +27,16 @@ excel_estacas = r"C:\Users\joaorodrigues\Downloads\Qgis\Sinop\Estacas.xlsx"
 excel_emprestimos = r"C:\Users\joaorodrigues\Downloads\Qgis\Sinop\CaixasDeEmprestimo.xlsx"
 excel_frota = r"C:\Users\joaorodrigues\Downloads\Qgis\Sinop\Equipamentos.xlsx"
 geojson_poligono = r"C:\Users\joaorodrigues\Downloads\Qgis\Sinop\PoligonoDup01.geojson"
+geojson_linhas = r"C:\Users\joaorodrigues\Downloads\Qgis\Sinop\LinhasDup02.geojson"
 
 # Carrega os dados geográficos e analíticos (Excel)
 gdf_estacas_wgs84 = carregar_pontos_excel(excel_estacas)
 gdf_emp_wgs84 = carregar_pontos_excel(excel_emprestimos)
 df_frota = pd.read_excel(excel_frota)
 
-# Carrega o arquivo GeoJSON e garante a reprojeção para WGS84
+# Carrega os arquivos GeoJSON e garante a reprojeção para WGS84
 gdf_poligono_wgs84 = gpd.read_file(geojson_poligono).to_crs(epsg=4326)
+gdf_linhas_wgs84 = gpd.read_file(geojson_linhas).to_crs(epsg=4326)
 
 # ==========================================
 # CONFIGURAÇÃO DO MAPA BASE
@@ -68,8 +70,8 @@ for i in range(len(estacas_lista) - 1):
 
 # 2. Desenhar as Caixas de Empréstimo (Polígonos)
 camada_caixas = folium.FeatureGroup(name="Caixas de Empréstimo")
-for nome_caixa, grupo in gdf_emp_wgs84.groupby('Name'):
-    coords_perimetro = [[row.geometry.y, row.geometry.x] for _, row in grupo.iterrows()]
+for nome_caixa, group in gdf_emp_wgs84.groupby('Name'):
+    coords_perimetro = [[row.geometry.y, row.geometry.x] for _, row in group.iterrows()]
     
     if len(coords_perimetro) >= 3:
         folium.Polygon(
@@ -90,13 +92,13 @@ for nome_caixa, grupo in gdf_emp_wgs84.groupby('Name'):
         ).add_to(camada_caixas)
 camada_caixas.add_to(mapa)
 
-# NOVOS DADOS: 3. Desenhar a camada do GeoJSON (Polígono Dup 01)
+# 3. Desenhar a camada do GeoJSON (Polígono Dup 01)
 camada_poligono_dup = folium.FeatureGroup(name="Polígono Dup 01")
 folium.GeoJson(
     gdf_poligono_wgs84,
     style_function=lambda x: {
-        'fillColor': '#9b59b6',  # Preenchimento Roxo Claro
-        'color': '#8e44ad',      # Borda Roxa
+        'fillColor': '#9b59b6',  # Roxo
+        'color': '#8e44ad',      
         'weight': 3,
         'fillOpacity': 0.4
     },
@@ -104,7 +106,20 @@ folium.GeoJson(
 ).add_to(camada_poligono_dup)
 camada_poligono_dup.add_to(mapa)
 
-# 4. Criar a camada de Pontos de Estaca
+# NOVO ELEMENTO: 4. Desenhar a camada do GeoJSON de Linhas (Linhas Dup 02)
+camada_linhas_dup = folium.FeatureGroup(name="Linhas Dup 02")
+folium.GeoJson(
+    gdf_linhas_wgs84,
+    style_function=lambda x: {
+        'color': '#27ae60',      # Verde Esmeralda para destacar
+        'weight': 4,
+        'opacity': 0.85
+    },
+    tooltip="Linhas Dup 02"
+).add_to(camada_linhas_dup)
+camada_linhas_dup.add_to(mapa)
+
+# 5. Criar a camada de Pontos de Estaca
 camada_pontos = folium.FeatureGroup(name="Estacas (Pontos)")
 for _, row in gdf_estacas_wgs84.iterrows():
     popup_conteudo = f"""
@@ -128,7 +143,7 @@ for _, row in gdf_estacas_wgs84.iterrows():
     ).add_to(camada_pontos)
 camada_pontos.add_to(mapa)
 
-# 5. Criar a camada de Frota (Equipamentos com interpolação de ponto médio)
+# 6. Criar a camada de Frota (Equipamentos com interpolação de ponto médio)
 camada_frota = folium.FeatureGroup(name="Equipamento Ativo (Teste)")
 for _, row_frota in df_frota.iterrows():
     arquivo_icone = row_frota['imagem']
@@ -225,4 +240,4 @@ mapa.get_root().script.add_child(folium.Element(codigo_js))
 
 # Salva o arquivo final
 mapa.save('index.html')
-print("Dashboard atualizado com sucesso! Arquivo GeoJSON integrado e estilizado.")
+print("Dashboard atualizado! Camada de linhas integrada com sucesso.")
