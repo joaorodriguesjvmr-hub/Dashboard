@@ -137,13 +137,12 @@ for _, row_frota in df_frota.iterrows():
         <div style="font-family: Arial, sans-serif; font-size: 12px; min-width: 160px;">
             <h4 style="margin: 0 0 5px 0; color: #1a365d;">Ativo em Frente de Serviço</h4>
             <b>Equipamento:</b> {arquivo_icone.split('.')[0].upper()}<br>
-            <b>Posicionado na:</b> {nome_estaca_alvo}<br>
         </div>
         """
         
         custom_icon = folium.CustomIcon(
             caminho_completo_icone,
-            icon_size=(42, 42),
+            icon_size=(64, 64),
             icon_anchor=(21, 42)
         )
         
