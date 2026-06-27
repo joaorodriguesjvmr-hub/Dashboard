@@ -21,7 +21,7 @@ def carregar_pontos_excel(caminho_excel, crs_origem="EPSG:31981", crs_destino=43
 # ==========================================
 # CONFIGURAÇÃO DE DADOS E CAMINHOS
 # ==========================================
-prefixo_icones = r"C:\Users\joaorodrigues\Downloads\Maquinas\Convertido\\" 
+prefixo_icones = r"C:\Users\joaorodrigues\Downloads\Maquinas\Convertido\sem bg\\" 
 
 excel_estacas = r"C:\Users\joaorodrigues\Downloads\Qgis\Sinop\Estacas.xlsx"
 excel_emprestimos = r"C:\Users\joaorodrigues\Downloads\Qgis\Sinop\CaixasDeEmprestimo.xlsx"
