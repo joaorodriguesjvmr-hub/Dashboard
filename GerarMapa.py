@@ -150,7 +150,7 @@ for _, row_frota in df_frota.iterrows():
             location=[lat_equip, lon_equip],
             icon=custom_icon,
             popup=folium.Popup(popup_frota, max_width=250),
-            tooltip=f"{arquivo_icone.split('.')[0].capitalize()} na {nome_estaca_alvo}"
+            tooltip=f"{arquivo_icone.split('.')[0].capitalize()}"
         ).add_to(camada_frota)
 
 camada_frota.add_to(mapa)
