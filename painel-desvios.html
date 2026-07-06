@@ -75,6 +75,15 @@
     line-height: 1.7;
   }
   .updated .num { color: rgba(255,255,255,.9); font-size: 12px; font-weight: 600; }
+  .btn-imprimir {
+    margin-top: 8px;
+    background: rgba(255,255,255,.12);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,.35);
+    font-size: 11px;
+    padding: 5px 12px;
+  }
+  .btn-imprimir:hover { background: rgba(255,255,255,.22); }
 
   section { padding: 0 20px; margin-bottom: 28px; }
 
@@ -367,6 +376,56 @@
   @media (prefers-reduced-motion: no-preference) {
     .kpi-card, .col-chart, .filter-bar { transition: border-color 0.15s ease; }
   }
+
+  @media print {
+    @page { size: A4 landscape; margin: 12mm; }
+
+    * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+
+    body { background: #fff; }
+
+    /* Esconde tudo que so faz sentido interativamente na tela */
+    button, input, select, .setor-chips, .busca-bar, .filtro-ativo button {
+      display: none !important;
+    }
+
+    /* Secoes que sao so filtros (sem conteudo proprio) somem por completo */
+    .somente-tela {
+      display: none !important;
+    }
+
+    header.top { border-radius: 0; }
+
+    /* Destaque para a secao de cards de descricao - o principal conteudo do relatorio */
+    .secao-descricao-print {
+      border: 2px solid var(--ink);
+      border-radius: 8px;
+      padding: 14px 18px 18px;
+    }
+    .secao-descricao-print .section-head h2 {
+      font-size: 16px;
+    }
+
+    /* A lista de descricoes normalmente rola dentro de uma caixa com altura
+       limitada - na impressao, mostra tudo, sem cortar nem rolar. */
+    .lista-desvios {
+      max-height: none !important;
+      overflow: visible !important;
+    }
+
+    .col-chart {
+      overflow: visible !important;
+    }
+
+    /* Evita que um card ou KPI seja cortado ao meio entre duas paginas */
+    .desvio-card, .kpi-card, .col-item {
+      break-inside: avoid;
+    }
+
+    section {
+      break-inside: avoid-page;
+    }
+  }
 </style>
 </head>
 <body>
@@ -379,7 +438,10 @@
     </div>
     <div class="updated">
       Atualizado em<br>
-      <span class="num">06/07/2026 08:40</span>
+      <span class="num">06/07/2026 10:24</span>
+      <div>
+        <button class="ghost btn-imprimir" id="btn-imprimir" type="button">Imprimir relatorio</button>
+      </div>
     </div>
   </header>
 
@@ -469,7 +531,7 @@
 
   <section>
     <div class="section-head">
-      <h2>Por responsavel &mdash; periodo selecionado</h2>
+      <h2>Por responsavel &mdash; <span id="titulo-data-periodo-2">periodo selecionado</span></h2>
       <div class="legend">
         <span><span class="dot open"></span>Aguardando solucao</span>
         <span><span class="dot resolved"></span>Resolvidas</span>
@@ -480,12 +542,12 @@
     </div>
   </section>
 
-  <section>
+  <section class="somente-tela">
     <div class="section-head"><h2>Filtrar por responsavel</h2></div>
     <div class="setor-chips" id="setor-chips"></div>
   </section>
 
-  <section>
+  <section class="somente-tela">
     <div class="section-head"><h2>Filtrar por status e embargo</h2></div>
     <div class="filtro-linha">
       <span class="filtro-linha-label">Status:</span>
@@ -497,9 +559,9 @@
     </div>
   </section>
 
-  <section>
+  <section class="secao-descricao-print">
     <div class="section-head">
-      <h2>Descricao dos desvios &mdash; periodo selecionado</h2>
+      <h2>Descricao dos desvios &mdash; <span id="titulo-data-periodo-1">periodo selecionado</span></h2>
     </div>
     <div class="busca-bar">
       <input type="text" id="busca-desvio" placeholder="Buscar por codigo, responsavel ou descricao...">
@@ -579,7 +641,7 @@
   </section>
 
   <section>
-    <div class="section-head"><h2>Desvios registrados por fiscal &mdash; periodo selecionado</h2></div>
+    <div class="section-head"><h2>Desvios registrados por fiscal &mdash; <span id="titulo-data-periodo-usuario">periodo selecionado</span></h2></div>
     <div class="filter-bar">
       <button type="button" class="modo-btn-usuario" data-modo="semana">Semana</button>
       <button type="button" class="modo-btn-usuario" data-modo="mes">Mes</button>
@@ -687,6 +749,11 @@
     if (!iso) return '';
     const [ano, mes, dia] = iso.split('-');
     return `${dia}/${mes}/${ano}`;
+  }
+
+  function descPeriodo(inicio, fim) {
+    if (!inicio || !fim) return 'periodo selecionado';
+    return `de ${formatarDataBR(inicio)} ate ${formatarDataBR(fim)}`;
   }
 
   let responsavelSelecionado = null;
@@ -1274,6 +1341,8 @@
       porUsuario[d.usuario] = (porUsuario[d.usuario] || 0) + 1;
     });
 
+    document.getElementById('titulo-data-periodo-usuario').textContent = descPeriodo(inicioU, fimU);
+
     container.innerHTML = '';
     const usuarios = Object.entries(porUsuario)
       .map(([nome, qtd]) => ({ nome, qtd }))
@@ -1305,6 +1374,9 @@
   }
 
   function renderPeriodo(inicio, fim) {
+    document.getElementById('titulo-data-periodo-1').textContent = descPeriodo(inicio, fim);
+    document.getElementById('titulo-data-periodo-2').textContent = descPeriodo(inicio, fim);
+
     let abertosPeriodo = 0, resolvidosPeriodo = 0, resolvidosAnterior = 0, resolvidosMesmo = 0, embargosPeriodo = 0;
     const porResp = {};
     const itensNoPeriodo = [];
@@ -1507,6 +1579,8 @@
     buscaTexto = e.target.value;
     aplicarFiltro();
   });
+
+  document.getElementById('btn-imprimir').addEventListener('click', () => window.print());
 
   aplicarFiltro();
 </script>
