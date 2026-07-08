@@ -508,7 +508,7 @@
     </div>
     <div class="updated">
       Atualizado em<br>
-      <span class="num">08/07/2026 08:10</span>
+      <span class="num">08/07/2026 08:33</span>
       <div class="botoes-print">
         <button class="ghost btn-imprimir" id="btn-imprimir" type="button">Imprimir relatorio</button>
         <button class="ghost btn-imprimir" id="btn-imprimir-aberto" type="button">Imprimir lista de desvios em aberto</button>
@@ -562,9 +562,15 @@
     </div>
   </section>
 
-  <section>
-    <div class="section-head"><h2>Periodo personalizado &mdash; <span id="titulo-data-periodo-0">periodo selecionado</span></h2></div>
-    <p class="filtro-nota">Este filtro controla os KPIs abaixo, o grafico "Por responsavel" e a lista de "Descricao dos desvios" (no final da pagina).</p>
+  <section class="grupo-filtrado">
+    <div class="section-head">
+      <h2>Por responsavel &mdash; <span id="titulo-data-periodo-2">periodo selecionado</span></h2>
+      <div class="legend">
+        <span><span class="dot open"></span>Aberto agora</span>
+        <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:8px;height:8px;border-radius:50%;background:#111111;display:inline-block;"></span>Aberto no periodo</span>
+        <span><span class="dot resolved"></span>Resolvidas no periodo</span>
+      </div>
+    </div>
     <div class="filter-bar">
       <div class="field">
         <label for="data-inicio">De</label>
@@ -576,12 +582,8 @@
       </div>
       <button class="primary" id="btn-aplicar">Aplicar</button>
       <button class="ghost" id="btn-limpar">Tudo</button>
-      <div class="legend">
-        <span><span class="dot open"></span>Aberto</span>
-        <span><span class="dot resolved"></span>Resolvido</span>
-      </div>
     </div>
-    <div class="kpi-grid">
+    <div class="kpi-grid" style="margin-bottom:14px;">
       <div class="kpi-card open">
         <div class="label">Abertos no periodo</div>
         <div class="value num" id="kpi-aberto-periodo">0</div>
@@ -607,19 +609,6 @@
         <div class="value num" id="kpi-embargo-periodo">0</div>
       </div>
     </div>
-  </section>
-
-  <section class="grupo-filtrado">
-    <div class="section-head">
-      <h2>Por responsavel &mdash; <span id="titulo-data-periodo-2">periodo selecionado</span></h2>
-      <div class="legend">
-        <span><span class="dot open"></span>Aberto agora</span>
-        <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:8px;height:8px;border-radius:50%;background:#111111;display:inline-block;"></span>Aberto no periodo</span>
-        <span><span class="dot resolved"></span>Resolvidas no periodo</span>
-      </div>
-    </div>
-    <p class="filtro-nota">Tambem usa o filtro "Periodo personalizado" acima. O filtro de setor abaixo tambem afeta a lista de descricao, no final da pagina.</p>
-    <div class="filtro-discreto somente-tela" id="setor-chips"></div>
     <div class="col-chart" id="bars-container">
       <div class="empty-note">Sem dados para o periodo selecionado.</div>
     </div>
@@ -673,7 +662,8 @@
       <span><span class="dot resolved"></span>Resolvidos (linha = acumulado, barra = do periodo)</span>
       <span><span class="dot" style="background:#6D28D9"></span>Tempo medio de resolucao (dias)</span>
     </div>
-    <p class="filtro-nota">A linha de tempo medio de resolucao respeita o filtro de setor selecionado em "Por responsavel" acima.</p>
+    <p class="filtro-nota">O filtro de setor abaixo recalcula so a linha de tempo medio de resolucao.</p>
+    <div class="filtro-discreto somente-tela" id="acumulado-setor-chips"></div>
     <div class="line-chart-box" id="linha-container">
       <div class="empty-note">Sem dados para o periodo selecionado.</div>
     </div>
@@ -737,10 +727,30 @@
       <h2>Descricao dos desvios &mdash; <span id="titulo-data-periodo-1">periodo selecionado</span></h2>
     </div>
     <p class="filtro-nota">
-      Mostra os desvios do filtro "Periodo personalizado" (no topo da pagina), combinado com o
-      filtro de setor (na secao "Por responsavel" acima), os filtros abaixo e a busca.
+      Esta secao tem seus proprios filtros, independentes do resto da pagina.
     </p>
     <div class="filtro-discreto somente-tela">
+      <div class="filtro-discreto-linha">
+        <span class="filtro-discreto-label">Periodo</span>
+        <div class="field">
+          <label for="desc-data-inicio">De</label>
+          <input type="date" id="desc-data-inicio">
+        </div>
+        <div class="field">
+          <label for="desc-data-fim">Ate</label>
+          <input type="date" id="desc-data-fim">
+        </div>
+        <button class="ghost" id="btn-desc-aplicar" type="button">Aplicar</button>
+        <button class="ghost" id="btn-desc-limpar" type="button">Tudo</button>
+      </div>
+      <div class="filtro-discreto-linha">
+        <span class="filtro-discreto-label">Responsavel</span>
+        <div class="setor-chips" id="desc-setor-chips"></div>
+      </div>
+      <div class="filtro-discreto-linha">
+        <span class="filtro-discreto-label">Fiscal</span>
+        <div class="setor-chips" id="desc-usuario-chips"></div>
+      </div>
       <div class="filtro-discreto-linha">
         <span class="filtro-discreto-label">Status</span>
         <div class="setor-chips" id="status-chips"></div>
@@ -845,7 +855,9 @@
     return `de ${formatarDataBR(inicio)} ate ${formatarDataBR(fim)}`;
   }
 
-  let responsavelSelecionado = null;
+  let respSelecionadoDescricao = null;
+  let usuarioSelecionadoDescricao = null;
+  let respSelecionadoAcumulado = null;
 
   function itemNoPeriodo(d, inicio, fim) {
     const abriu = dentroPeriodo(d.data_criacao, inicio, fim);
@@ -930,26 +942,76 @@
       });
   }
 
-  function renderChipsSetor() {
-    const container = document.getElementById('setor-chips');
+  function renderChipsSetorDescricao() {
+    const container = document.getElementById('desc-setor-chips');
     const setores = [...new Set(dados.map(d => d.responsavel))].sort((a, b) => a.localeCompare(b));
 
     container.innerHTML = '';
     const chipTodos = document.createElement('button');
     chipTodos.type = 'button';
-    chipTodos.className = 'chip' + (!responsavelSelecionado ? ' ativo' : '');
+    chipTodos.className = 'chip' + (!respSelecionadoDescricao ? ' ativo' : '');
     chipTodos.textContent = 'Todos';
-    chipTodos.addEventListener('click', () => selecionarResponsavel(null, true));
+    chipTodos.addEventListener('click', () => selecionarRespDescricao(null, true));
     container.appendChild(chipTodos);
 
     setores.forEach(nome => {
       const chip = document.createElement('button');
       chip.type = 'button';
-      chip.className = 'chip' + (responsavelSelecionado === nome ? ' ativo' : '');
+      chip.className = 'chip' + (respSelecionadoDescricao === nome ? ' ativo' : '');
       chip.textContent = nome;
-      chip.addEventListener('click', () => selecionarResponsavel(nome));
+      chip.addEventListener('click', () => selecionarRespDescricao(nome));
       container.appendChild(chip);
     });
+  }
+
+  function renderChipsUsuarioDescricao() {
+    const container = document.getElementById('desc-usuario-chips');
+    const usuarios = [...new Set(dados.map(d => d.usuario))].sort((a, b) => a.localeCompare(b));
+
+    container.innerHTML = '';
+    const chipTodos = document.createElement('button');
+    chipTodos.type = 'button';
+    chipTodos.className = 'chip' + (!usuarioSelecionadoDescricao ? ' ativo' : '');
+    chipTodos.textContent = 'Todos';
+    chipTodos.addEventListener('click', () => selecionarUsuarioDescricao(null, true));
+    container.appendChild(chipTodos);
+
+    usuarios.forEach(nome => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip' + (usuarioSelecionadoDescricao === nome ? ' ativo' : '');
+      chip.textContent = nome;
+      chip.addEventListener('click', () => selecionarUsuarioDescricao(nome));
+      container.appendChild(chip);
+    });
+  }
+
+  function renderChipsSetorAcumulado() {
+    const container = document.getElementById('acumulado-setor-chips');
+    const setores = [...new Set(dados.map(d => d.responsavel))].sort((a, b) => a.localeCompare(b));
+
+    container.innerHTML = '';
+    const chipTodos = document.createElement('button');
+    chipTodos.type = 'button';
+    chipTodos.className = 'chip' + (!respSelecionadoAcumulado ? ' ativo' : '');
+    chipTodos.textContent = 'Todos';
+    chipTodos.addEventListener('click', () => selecionarRespAcumulado(null));
+    container.appendChild(chipTodos);
+
+    setores.forEach(nome => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip' + (respSelecionadoAcumulado === nome ? ' ativo' : '');
+      chip.textContent = nome;
+      chip.addEventListener('click', () => selecionarRespAcumulado(nome));
+      container.appendChild(chip);
+    });
+  }
+
+  function selecionarRespAcumulado(nome) {
+    respSelecionadoAcumulado = (respSelecionadoAcumulado === nome) ? null : nome;
+    renderChipsSetorAcumulado();
+    renderLinhaAcumulada();
   }
 
   let statusSelecionado = 'aberto'; // null | 'aberto' | 'resolvido' - padrao: mostra os desvios em aberto
@@ -994,7 +1056,8 @@
 
   function atualizarIndicadorFiltro() {
     const partes = [];
-    if (responsavelSelecionado) partes.push(responsavelSelecionado);
+    if (respSelecionadoDescricao) partes.push(respSelecionadoDescricao);
+    if (usuarioSelecionadoDescricao) partes.push(usuarioSelecionadoDescricao);
     if (statusSelecionado) partes.push(statusSelecionado === 'aberto' ? 'Aberto' : 'Resolvido');
     if (embargoSelecionado !== null) partes.push(embargoSelecionado ? 'Com embargo' : 'Sem embargo');
 
@@ -1007,37 +1070,51 @@
     }
   }
 
-  function selecionarResponsavel(nome, forcarLimpar) {
-    responsavelSelecionado = forcarLimpar ? null : (responsavelSelecionado === nome ? null : nome);
+  function selecionarRespDescricao(nome, forcarLimpar) {
+    respSelecionadoDescricao = forcarLimpar ? null : (respSelecionadoDescricao === nome ? null : nome);
     atualizarIndicadorFiltro();
-    renderChipsSetor();
-    aplicarFiltro();
+    renderChipsSetorDescricao();
+    renderListaDescricao();
+  }
+
+  function selecionarUsuarioDescricao(nome, forcarLimpar) {
+    usuarioSelecionadoDescricao = forcarLimpar ? null : (usuarioSelecionadoDescricao === nome ? null : nome);
+    atualizarIndicadorFiltro();
+    renderChipsUsuarioDescricao();
+    renderListaDescricao();
   }
 
   function selecionarStatus(valor) {
     statusSelecionado = (statusSelecionado === valor) ? null : valor;
     atualizarIndicadorFiltro();
     renderChipsStatus();
-    aplicarFiltro();
+    renderListaDescricao();
   }
 
   function selecionarEmbargo(valor) {
     embargoSelecionado = (embargoSelecionado === valor) ? null : valor;
     atualizarIndicadorFiltro();
     renderChipsEmbargo();
-    aplicarFiltro();
+    renderListaDescricao();
   }
 
   document.getElementById('btn-limpar-filtro').addEventListener('click', () => {
-    responsavelSelecionado = null;
+    respSelecionadoDescricao = null;
+    usuarioSelecionadoDescricao = null;
     statusSelecionado = null;
     embargoSelecionado = null;
+    buscaTexto = '';
+    document.getElementById('busca-desvio').value = '';
+    document.getElementById('desc-data-inicio').value = extremos.min || '';
+    document.getElementById('desc-data-fim').value = extremos.max || '';
     atualizarIndicadorFiltro();
-    renderChipsSetor();
+    renderChipsSetorDescricao();
+    renderChipsUsuarioDescricao();
     renderChipsStatus();
     renderChipsEmbargo();
-    aplicarFiltro();
+    renderListaDescricao();
   });
+
 
   function listarDias(inicioISO, fimISO) {
     const dias = [];
@@ -1197,7 +1274,6 @@
     const somaTempoPorChave = {};
     const qtdTempoPorChave = {};
     dados.forEach(d => {
-      if (responsavelSelecionado && d.responsavel !== responsavelSelecionado) return;
       if (d.data_criacao && d.data_criacao >= inicioChart && d.data_criacao <= fimChart) {
         const chave = chaveDoBucket(d.data_criacao, granularidade);
         abertosPorChave[chave] = (abertosPorChave[chave] || 0) + 1;
@@ -1206,7 +1282,7 @@
         const chave = chaveDoBucket(d.data_finalizacao, granularidade);
         resolvidosPorChave[chave] = (resolvidosPorChave[chave] || 0) + 1;
 
-        if (!responsavelSelecionado || d.responsavel === responsavelSelecionado) {
+        if (!respSelecionadoAcumulado || d.responsavel === respSelecionadoAcumulado) {
           const dias = diasEntre(d.data_criacao, d.data_finalizacao);
           if (dias !== null && dias >= 0) {
             somaTempoPorChave[chave] = (somaTempoPorChave[chave] || 0) + dias;
@@ -1531,13 +1607,10 @@
 
 
   function renderPeriodo(inicio, fim) {
-    document.getElementById('titulo-data-periodo-0').textContent = descPeriodo(inicio, fim);
-    document.getElementById('titulo-data-periodo-1').textContent = descPeriodo(inicio, fim);
     document.getElementById('titulo-data-periodo-2').textContent = descPeriodo(inicio, fim);
 
     let abertosPeriodo = 0, resolvidosPeriodo = 0, resolvidosAnterior = 0, resolvidosMesmo = 0, embargosPeriodo = 0;
     const porResp = {};
-    const itensNoPeriodo = [];
 
     // Snapshot "ao vivo": quantos desvios estao em aberto AGORA por responsavel,
     // independente do periodo selecionado (aguardando solucao + em analise + reprovado).
@@ -1564,8 +1637,6 @@
         if (abertoAntes) resolvidosAnterior++; else resolvidosMesmo++;
       }
       if (d.embargo) embargosPeriodo++;
-
-      itensNoPeriodo.push({ d, abriu, resolveu });
     });
 
     document.getElementById('kpi-aberto-periodo').textContent = abertosPeriodo;
@@ -1601,13 +1672,12 @@
       const alturaMax = 190; // px - deve bater com a altura de .col-group no CSS
 
       colunas.forEach(l => {
-        const selecionado = l.nome === responsavelSelecionado;
         const altAgora = Math.round((l.abertoAgora / maiorValor) * alturaMax);
         const altPeriodo = Math.round((l.abertoPeriodo / maiorValor) * alturaMax);
         const altResolvidas = Math.round((l.resolvidas / maiorValor) * alturaMax);
 
         const col = document.createElement('div');
-        col.className = 'col-item' + (selecionado ? ' selecionado' : '');
+        col.className = 'col-item';
         col.innerHTML = `
           <div class="col-group">
             <div class="col-bar-wrap">
@@ -1625,14 +1695,25 @@
           </div>
           <div class="col-name" title="${escapeHtml(l.nome)}">${escapeHtml(l.nome)}</div>
         `;
-        col.addEventListener('click', () => selecionarResponsavel(l.nome));
         container.appendChild(col);
       });
     }
+  }
 
-    let itensFiltrados = responsavelSelecionado
-      ? itensNoPeriodo.filter(i => i.d.responsavel === responsavelSelecionado)
-      : itensNoPeriodo;
+  function renderListaDescricao() {
+    const inicio = document.getElementById('desc-data-inicio').value || null;
+    const fim = document.getElementById('desc-data-fim').value || null;
+    document.getElementById('titulo-data-periodo-1').textContent = descPeriodo(inicio, fim);
+
+    let itensFiltrados = [];
+    dados.forEach(d => {
+      const { abriu, resolveu, incluido } = itemNoPeriodo(d, inicio, fim);
+      if (!incluido) return;
+      itensFiltrados.push({ d, abriu, resolveu });
+    });
+
+    if (respSelecionadoDescricao) itensFiltrados = itensFiltrados.filter(i => i.d.responsavel === respSelecionadoDescricao);
+    if (usuarioSelecionadoDescricao) itensFiltrados = itensFiltrados.filter(i => i.d.usuario === usuarioSelecionadoDescricao);
     if (statusSelecionado === 'aberto') itensFiltrados = itensFiltrados.filter(i => !i.d.resolvido);
     if (statusSelecionado === 'resolvido') itensFiltrados = itensFiltrados.filter(i => i.d.resolvido);
     if (embargoSelecionado === true) itensFiltrados = itensFiltrados.filter(i => i.d.embargo);
@@ -1745,14 +1826,26 @@
     trocarModoUsuario('ano');
   })();
 
-  renderChipsSetor();
+  renderChipsSetorDescricao();
+  renderChipsUsuarioDescricao();
   renderChipsStatus();
   renderChipsEmbargo();
+  renderChipsSetorAcumulado();
   renderVisaoGeral();
+
+  document.getElementById('desc-data-inicio').value = extremos.min || '';
+  document.getElementById('desc-data-fim').value = extremos.max || '';
+  document.getElementById('btn-desc-aplicar').addEventListener('click', renderListaDescricao);
+  document.getElementById('btn-desc-limpar').addEventListener('click', () => {
+    document.getElementById('desc-data-inicio').value = extremos.min || '';
+    document.getElementById('desc-data-fim').value = extremos.max || '';
+    renderListaDescricao();
+  });
+  renderListaDescricao();
 
   document.getElementById('busca-desvio').addEventListener('input', (e) => {
     buscaTexto = e.target.value;
-    aplicarFiltro();
+    renderListaDescricao();
   });
 
   document.getElementById('btn-ordenar-data').addEventListener('click', (e) => {
@@ -1760,29 +1853,36 @@
     e.target.innerHTML = ordemDataAscendente
       ? 'Ordenar por data de criacao &#8593;'
       : 'Ordenar por data de criacao &#8595;';
-    aplicarFiltro();
+    renderListaDescricao();
   });
 
   document.getElementById('btn-imprimir').addEventListener('click', () => window.print());
 
   document.getElementById('btn-imprimir-aberto').addEventListener('click', () => {
     const statusAnterior = statusSelecionado;
-    const responsavelAnterior = responsavelSelecionado;
+    const respAnterior = respSelecionadoDescricao;
+    const usuarioAnterior = usuarioSelecionadoDescricao;
     const embargoAnterior = embargoSelecionado;
     const buscaAnterior = buscaTexto;
+    const descInicioAnterior = document.getElementById('desc-data-inicio').value;
+    const descFimAnterior = document.getElementById('desc-data-fim').value;
 
     // Forca a lista a mostrar todos os desvios em aberto, ignorando o
     // filtro de periodo e quaisquer outros filtros ativos na tela.
     statusSelecionado = 'aberto';
-    responsavelSelecionado = null;
+    respSelecionadoDescricao = null;
+    usuarioSelecionadoDescricao = null;
     embargoSelecionado = null;
     buscaTexto = '';
     document.getElementById('busca-desvio').value = '';
+    document.getElementById('desc-data-inicio').value = '';
+    document.getElementById('desc-data-fim').value = '';
 
-    renderChipsSetor();
+    renderChipsSetorDescricao();
+    renderChipsUsuarioDescricao();
     renderChipsStatus();
     renderChipsEmbargo();
-    renderPeriodo(null, null); // null, null = sem limite de data (todo o periodo)
+    renderListaDescricao(); // null, null = sem limite de data (todo o periodo)
 
     document.body.classList.add('imprimir-somente-lista');
     const tituloEl = document.getElementById('titulo-principal');
@@ -1793,14 +1893,18 @@
       document.body.classList.remove('imprimir-somente-lista');
       tituloEl.textContent = tituloAnterior;
       statusSelecionado = statusAnterior;
-      responsavelSelecionado = responsavelAnterior;
+      respSelecionadoDescricao = respAnterior;
+      usuarioSelecionadoDescricao = usuarioAnterior;
       embargoSelecionado = embargoAnterior;
       buscaTexto = buscaAnterior;
       document.getElementById('busca-desvio').value = buscaAnterior;
-      renderChipsSetor();
+      document.getElementById('desc-data-inicio').value = descInicioAnterior;
+      document.getElementById('desc-data-fim').value = descFimAnterior;
+      renderChipsSetorDescricao();
+      renderChipsUsuarioDescricao();
       renderChipsStatus();
       renderChipsEmbargo();
-      aplicarFiltro();
+      renderListaDescricao();
       window.removeEventListener('afterprint', restaurarFiltro);
     };
     window.addEventListener('afterprint', restaurarFiltro);
