@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Painel de Viagens - Consolidado</title>
+<title>Painel de Viagens - Viagens</title>
 <style>
   :root {
     --bg: #0f1420;
@@ -75,6 +75,19 @@
     font-size: 13px;
     font-family: inherit;
   }
+  .btn-reset {
+    background: var(--panel);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    margin-left: auto;
+  }
+  .btn-reset:hover { color: var(--text); border-color: var(--accent); }
 
   .quad-grid {
     display: grid;
@@ -181,8 +194,23 @@
   .linha-legenda.dia { border-color: var(--accent); border-top-style: dashed; }
   .linha-legenda.noite { border-color: #9aa5b8; border-top-style: dashed; }
 
-  .combo-chart { width: 100%; height: 340px; }
+  .combo-chart { width: 100%; height: 340px; position: relative; }
   .combo-chart svg { width: 100%; height: 100%; display: block; }
+  .combo-tooltip {
+    display: none;
+    position: absolute;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--text);
+    pointer-events: none;
+    white-space: nowrap;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+    z-index: 10;
+  }
 
   /* grafico de colunas empilhadas por dia (quadrante 1) */
   .stacked-chart { display: flex; align-items: flex-end; gap: 4px; overflow-x: auto; height: 240px; padding-bottom: 6px; flex: 1; }
@@ -218,7 +246,20 @@
   .vbar-label { font-size: 9px; color: var(--text-dim); margin-top: 6px; text-align: center; word-break: break-word; width: 100%; }
 
   .drilldown-panel { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
-  .drilldown-titulo { font-size: 12px; color: var(--text); font-weight: 600; margin-bottom: 10px; }
+  .drilldown-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  .drilldown-titulo { font-size: 12px; color: var(--text); font-weight: 600; }
+  .btn-fechar {
+    background: var(--panel-2);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-family: inherit;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .btn-fechar:hover { color: var(--text); border-color: var(--accent); }
 
   .pct-indicador {
     display: inline-block;
@@ -262,12 +303,12 @@
 
 <header>
   <div>
-    <h1>Painel de Viagens - Consolidado</h1>
+    <h1>Painel de Viagens - Viagens</h1>
     <div class="sub">Obra: SINOP</div>
   </div>
   <div class="meta">
-    Gerado em 24/07/2026 11:58<br>
-    Fonte: Consolidado.xlsx
+    Gerado em 24/07/2026 14:49<br>
+    Fonte: Viagens.xlsx
   </div>
 </header>
 
@@ -281,6 +322,7 @@
 <div class="filtro-bar">
   <label for="filtro-dia">Dia operacional (07:00 a 04:00 do dia seguinte):</label>
   <select id="filtro-dia"></select>
+  <button id="btn-reset-viagens" class="btn-reset" type="button">&#8635; Resetar Visualizacao</button>
 </div>
 
 <div class="kpis">
@@ -403,11 +445,12 @@
   <label for="filtro-data-fim">Ate:</label>
   <input type="date" id="filtro-data-fim">
   <span class="filtro-hint">(dia operacional: 07:00 do dia inicial ate 04:00 do dia seguinte ao dia final)</span>
+  <button id="btn-reset-periodo" class="btn-reset" type="button">&#8635; Resetar Visualizacao</button>
 </div>
 
 <div class="quad-grid">
   <div class="panel">
-    <h2>Viagens por Dia - CBM x CM x Escavadeira</h2>
+    <h2>Caminhoes e Escavadeiras Ativos por Dia</h2>
     <div class="chart-legend">
       <span class="legend-item"><span class="legend-dot cbm"></span>CBM</span>
       <span class="legend-item"><span class="legend-dot cm"></span>CM</span>
@@ -434,7 +477,10 @@
     <p class="alertas-nota" style="margin-bottom:10px;">Clique em uma escavadeira para ver os caminhoes atendidos.</p>
     <div id="chart-periodo-escavadeira" class="vbar-chart"></div>
     <div id="drilldown-escavadeira" class="drilldown-panel" style="display:none;">
-      <div id="drilldown-titulo" class="drilldown-titulo"></div>
+      <div class="drilldown-header">
+        <div id="drilldown-titulo" class="drilldown-titulo"></div>
+        <button id="drilldown-fechar" class="btn-fechar" type="button">&#9650; Recolher</button>
+      </div>
       <div id="drilldown-lista" class="hbar-chart"></div>
     </div>
   </div>
@@ -864,13 +910,18 @@ selectDia.addEventListener("change", () => renderizar(selectDia.value));
 
 // estado inicial: se so existe um dia operacional, comeca ja filtrado
 // nele; caso contrario mostra todos os dias
-if (RAW.dias.length === 1) {
-  selectDia.value = RAW.dias[0];
-  renderizar(RAW.dias[0]);
-} else {
-  selectDia.value = "todos";
-  renderizar("todos");
+function estadoInicialViagens() {
+  if (RAW.dias.length === 1) {
+    selectDia.value = RAW.dias[0];
+    renderizar(RAW.dias[0]);
+  } else {
+    selectDia.value = "todos";
+    renderizar("todos");
+  }
 }
+estadoInicialViagens();
+
+document.getElementById("btn-reset-viagens").addEventListener("click", estadoInicialViagens);
 
 // ---------------------------------------------------------------------
 // Abas
@@ -899,9 +950,9 @@ function computarPeriodo(dataIni, dataFim) {
     const doDia = registros.filter(r => r.dia_op === dia);
     return {
       dia,
-      cbm: doDia.filter(r => r.familia === "CBM").length,
-      cm: doDia.filter(r => r.familia === "CM").length,
-      esc: doDia.filter(r => r.escavadeira).length,
+      cbm: new Set(doDia.filter(r => r.familia === "CBM").map(r => r.prefixo)).size,
+      cm: new Set(doDia.filter(r => r.familia === "CM").map(r => r.prefixo)).size,
+      esc: new Set(doDia.filter(r => r.escavadeira).map(r => r.escavadeira)).size,
       turno1: doDia.filter(r => r.turno === 1).length,
       turno2: doDia.filter(r => r.turno === 2).length,
       total: doDia.length,
@@ -970,7 +1021,7 @@ function renderStackedChart(porDia, idContainer) {
     const alturaEsc = (d.esc / maxTotal) * 100;
     const [, M, D] = d.dia.split("-");
     col.innerHTML = `
-      <div class="stacked-bars" title="${D}/${M}: CBM ${d.cbm}, CM ${d.cm}, Escavadeira ${d.esc}">
+      <div class="stacked-bars" title="${D}/${M}: ${d.cbm} caminhoes CBM, ${d.cm} caminhoes CM, ${d.esc} escavadeiras ativas">
         <div class="stacked-seg cbm" style="height:${alturaCbm}%"></div>
         <div class="stacked-seg cm" style="height:${alturaCm}%"></div>
         <div class="stacked-seg esc" style="height:${alturaEsc}%"></div>
@@ -1037,8 +1088,20 @@ function renderVBarChart(lista, idContainer, onClickItem) {
   });
 }
 
+function fecharDrilldownEscavadeira() {
+  const escContainer = document.getElementById("chart-periodo-escavadeira");
+  escContainer.querySelectorAll(".vbar-col").forEach(c => c.classList.remove("selecionado"));
+  document.getElementById("drilldown-escavadeira").style.display = "none";
+}
+
 function selecionarEscavadeira(item, colEl, container) {
+  const jaSelecionado = colEl.classList.contains("selecionado");
   container.querySelectorAll(".vbar-col").forEach(c => c.classList.remove("selecionado"));
+  if (jaSelecionado) {
+    // clicar de novo na mesma escavadeira = drill-up (fecha o detalhamento)
+    document.getElementById("drilldown-escavadeira").style.display = "none";
+    return;
+  }
   colEl.classList.add("selecionado");
   const painel = document.getElementById("drilldown-escavadeira");
   const titulo = document.getElementById("drilldown-titulo");
@@ -1055,7 +1118,13 @@ function renderComboChart(porDia, idContainer) {
     return;
   }
 
-  const W = 1000, H = 340;
+  // usa a largura real do container para o viewBox, assim o SVG nao
+  // precisa ser esticado de forma nao-uniforme (o que distorcia o
+  // texto dos rotulos) - so cai no valor padrao 900 se a largura nao
+  // puder ser medida (ex.: ambiente sem layout, como testes)
+  const larguraMedida = (container.clientWidth || (container.getBoundingClientRect && container.getBoundingClientRect().width) || 900);
+  const W = Math.max(500, Math.round(larguraMedida));
+  const H = 340;
   const margin = { left: 50, right: 55, top: 20, bottom: 70 };
   const plotW = W - margin.left - margin.right;
   const plotH = H - margin.top - margin.bottom;
@@ -1085,8 +1154,8 @@ function renderComboChart(porDia, idContainer) {
     const yTotal = yBar(p.total);
     const alturaT1 = (margin.top + plotH) - yT1;
     const alturaT2 = yT1 - yTotal;
-    barrasSvg += `<rect x="${xBar}" y="${yT1}" width="${barWidth}" height="${Math.max(0, alturaT1)}" fill="#3b82f6" opacity="0.85"><title>${p.dia}: Turno 1 = ${p.turno1}</title></rect>`;
-    barrasSvg += `<rect x="${xBar}" y="${yTotal}" width="${barWidth}" height="${Math.max(0, alturaT2)}" fill="#9aa5b8" opacity="0.85"><title>${p.dia}: Turno 2 = ${p.turno2}</title></rect>`;
+    barrasSvg += `<rect x="${xBar}" y="${yT1}" width="${barWidth}" height="${Math.max(0, alturaT1)}" fill="#3b82f6" opacity="0.85"/>`;
+    barrasSvg += `<rect x="${xBar}" y="${yTotal}" width="${barWidth}" height="${Math.max(0, alturaT2)}" fill="#9aa5b8" opacity="0.85"/>`;
   });
 
   function polyline(valores, cor, tracejado, espessura) {
@@ -1100,7 +1169,7 @@ function renderComboChart(porDia, idContainer) {
 
   let circulosSvg = "";
   pontos.forEach(p => {
-    circulosSvg += `<circle cx="${p.x}" cy="${yLine(p.cumTotal)}" r="3" fill="#fbbf24"><title>${p.dia}: acumulado ${p.cumTotal}</title></circle>`;
+    circulosSvg += `<circle cx="${p.x}" cy="${yLine(p.cumTotal)}" r="3" fill="#fbbf24"/>`;
   });
 
   let gridSvg = "";
@@ -1120,11 +1189,18 @@ function renderComboChart(porDia, idContainer) {
   pontos.forEach((p, i) => {
     if (i % passo !== 0 && i !== numDias - 1) return;
     const [, M, D] = p.dia.split("-");
-    labelsSvg += `<text x="${p.x}" y="${H - margin.bottom + 14}" text-anchor="end" font-size="9" fill="#9aa5b8" transform="rotate(-60 ${p.x} ${H - margin.bottom + 14})">${D}/${M}</text>`;
+    labelsSvg += `<text x="${p.x}" y="${H - margin.bottom + 16}" text-anchor="end" font-size="10" fill="#9aa5b8" transform="rotate(-45 ${p.x} ${H - margin.bottom + 16})">${D}/${M}</text>`;
+  });
+
+  // faixas de hover (uma por dia, ocupando o slot inteiro) para mostrar
+  // o tooltip customizado com os valores daquele dia
+  let hoverSvg = "";
+  pontos.forEach((p, i) => {
+    hoverSvg += `<rect class="combo-hover" data-idx="${i}" x="${p.x - slot / 2}" y="${margin.top}" width="${slot}" height="${plotH}" fill="transparent"/>`;
   });
 
   container.innerHTML = `
-    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+    <svg viewBox="0 0 ${W} ${H}">
       ${gridSvg}
       ${barrasSvg}
       ${linhaDia}
@@ -1132,7 +1208,40 @@ function renderComboChart(porDia, idContainer) {
       ${linhaTotal}
       ${circulosSvg}
       ${labelsSvg}
-    </svg>`;
+      ${hoverSvg}
+    </svg>
+    <div class="combo-tooltip" id="${idContainer}-tooltip"></div>`;
+
+  const tooltip = document.getElementById(`${idContainer}-tooltip`);
+
+  function conteudoTooltip(p) {
+    const [, M, D] = p.dia.split("-");
+    return `<strong>${D}/${M}</strong><br>
+      Total do dia: <b>${p.total}</b> (Dia ${p.turno1} / Noite ${p.turno2})<br>
+      Acumulado total: <b>${p.cumTotal}</b><br>
+      Acumulado dia: ${p.cumDia} &middot; Acumulado noite: ${p.cumNoite}`;
+  }
+
+  function mostrarTooltip(evt, idx) {
+    const p = pontos[idx];
+    const rect = container.getBoundingClientRect ? container.getBoundingClientRect() : { left: 0, top: 0, width: W, height: H };
+    const relX = evt.clientX - rect.left;
+    const relY = evt.clientY - rect.top;
+    tooltip.innerHTML = conteudoTooltip(p);
+    tooltip.style.display = "block";
+    const larguraTooltip = 190;
+    const left = Math.min(relX + 14, Math.max(0, rect.width - larguraTooltip));
+    tooltip.style.left = left + "px";
+    tooltip.style.top = Math.max(0, relY - 10) + "px";
+  }
+
+  const hovers = container.querySelectorAll(".combo-hover");
+  hovers.forEach(el => {
+    const idx = parseInt(el.getAttribute ? el.getAttribute("data-idx") : el.dataset.idx, 10);
+    el.addEventListener("mouseenter", evt => mostrarTooltip(evt, idx));
+    el.addEventListener("mousemove", evt => mostrarTooltip(evt, idx));
+    el.addEventListener("mouseleave", () => { tooltip.style.display = "none"; });
+  });
 }
 
 function renderizarPeriodo() {
@@ -1157,17 +1266,26 @@ function renderizarPeriodo() {
 
 const inputIni = document.getElementById("filtro-data-ini");
 const inputFim = document.getElementById("filtro-data-fim");
-if (RAW.dias.length > 0) {
-  inputIni.min = RAW.dias[0];
-  inputIni.max = RAW.dias[RAW.dias.length - 1];
-  inputFim.min = RAW.dias[0];
-  inputFim.max = RAW.dias[RAW.dias.length - 1];
-  inputIni.value = RAW.dias[0];
-  inputFim.value = RAW.dias[RAW.dias.length - 1];
+
+function estadoInicialPeriodo() {
+  if (RAW.dias.length > 0) {
+    inputIni.min = RAW.dias[0];
+    inputIni.max = RAW.dias[RAW.dias.length - 1];
+    inputFim.min = RAW.dias[0];
+    inputFim.max = RAW.dias[RAW.dias.length - 1];
+    inputIni.value = RAW.dias[0];
+    inputFim.value = RAW.dias[RAW.dias.length - 1];
+  }
+  fecharDrilldownEscavadeira();
+  renderizarPeriodo();
 }
+
 inputIni.addEventListener("change", renderizarPeriodo);
 inputFim.addEventListener("change", renderizarPeriodo);
-renderizarPeriodo();
+estadoInicialPeriodo();
+
+document.getElementById("btn-reset-periodo").addEventListener("click", estadoInicialPeriodo);
+document.getElementById("drilldown-fechar").addEventListener("click", fecharDrilldownEscavadeira);
 
 // ---------------------------------------------------------------------
 // Alertas de cadastro (Prefixo / Escavadeira fora do padrao)
