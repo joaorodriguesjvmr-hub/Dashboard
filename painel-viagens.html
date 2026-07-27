@@ -88,6 +88,19 @@
     margin-left: auto;
   }
   .btn-reset:hover { color: var(--text); border-color: var(--accent); }
+  .btn-secundario {
+    background: var(--panel);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .btn-secundario:hover { color: var(--text); border-color: var(--accent); }
+  .btn-secundario.ativo { color: var(--text); border-color: var(--accent); background: rgba(59,130,246,0.12); }
 
   .quad-grid {
     display: grid;
@@ -190,6 +203,7 @@
   .legend-dot.dia { background: var(--accent); }
   .legend-dot.noite { background: #9aa5b8; }
   .legend-dot.cbm { background: var(--accent); }
+  .legend-dot.cb { background: #14b8a6; }
   .legend-dot.cm { background: var(--accent-3); }
   .legend-dot.esc { background: var(--accent-2); }
   .legend-dot.cm-marca { background: rgba(245,158,11,0.45); border-radius: 2px; width: 4px; height: 14px; }
@@ -197,6 +211,7 @@
   .linha-legenda.total { border-color: #fbbf24; border-top-width: 3px; }
   .linha-legenda.dia { border-color: var(--accent); border-top-style: dashed; }
   .linha-legenda.noite { border-color: #9aa5b8; border-top-style: dashed; }
+  .linha-legenda.esc { border-color: var(--accent-2); border-top-width: 3px; }
 
   .combo-chart { width: 100%; height: 340px; position: relative; }
   .combo-chart svg { width: 100%; height: 100%; display: block; }
@@ -231,16 +246,6 @@
     box-shadow: 0 4px 14px rgba(0,0,0,0.4);
     z-index: 1000;
   }
-
-  /* grafico de colunas empilhadas por dia (quadrante 1) */
-  .stacked-chart { display: flex; align-items: flex-end; gap: 4px; overflow-x: auto; height: 240px; padding-bottom: 6px; flex: 1; }
-  .stacked-col { display: flex; flex-direction: column; align-items: center; flex: 1 1 0; min-width: 16px; max-width: 46px; height: 100%; }
-  .stacked-bars { display: flex; flex-direction: column-reverse; width: 100%; flex: 1; }
-  .stacked-seg { width: 100%; min-height: 1px; }
-  .stacked-seg.cbm { background: var(--accent); }
-  .stacked-seg.cm { background: var(--accent-3); }
-  .stacked-seg.esc { background: var(--accent-2); }
-  .stacked-label { font-size: 9px; color: var(--text-dim); margin-top: 4px; writing-mode: vertical-rl; text-orientation: mixed; white-space: nowrap; }
 
   /* grafico de barras horizontais (quadrantes 2 e 4, e drill-down) */
   .hbar-chart { min-height: 280px; max-height: 340px; overflow-y: auto; padding-right: 4px; display: flex; flex-direction: column; gap: 6px; justify-content: flex-start; flex: 1; }
@@ -354,7 +359,7 @@
     .filtro-bar { flex-direction: column; align-items: stretch; gap: 8px; }
     .filtro-bar label { font-size: 12px; }
     .filtro-bar select, .filtro-bar input[type="date"] { width: 100%; }
-    .btn-reset { margin-left: 0; width: 100%; text-align: center; }
+    .btn-reset, .btn-secundario { margin-left: 0; width: 100%; text-align: center; }
     .filtro-bar .filtro-hint { font-size: 10px; }
 
     .kpis { grid-template-columns: repeat(2, 1fr); gap: 8px; }
@@ -376,7 +381,7 @@
     .hbar-total { width: 26px; font-size: 10px; }
     .vbar-col { min-width: 34px; }
     .vbar-label { font-size: 8px; }
-    .stacked-col { min-width: 13px; }
+
 
     .combo-chart { height: 280px; }
 
@@ -399,7 +404,7 @@
     <div class="sub">Obra: SINOP</div>
   </div>
   <div class="meta">
-    Gerado em 27/07/2026 09:35<br>
+    Gerado em 27/07/2026 10:35<br>
     Fonte: Viagens.xlsx
   </div>
 </header>
@@ -412,8 +417,9 @@
 <div id="tab-viagens" class="tab-content active">
 
 <div class="filtro-bar">
-  <label for="filtro-dia">Dia operacional (07:00 a 04:00 do dia seguinte):</label>
-  <select id="filtro-dia"></select>
+  <label for="filtro-dia-input">Dia operacional (07:00 a 04:00 do dia seguinte):</label>
+  <input type="date" id="filtro-dia-input">
+  <button id="btn-todos-dias" class="btn-secundario" type="button">Ver Todos os Dias</button>
   <button id="btn-reset-viagens" class="btn-reset" type="button">&#8635; Resetar Visualizacao</button>
 </div>
 
@@ -557,10 +563,12 @@
     <h2>Caminhoes e Escavadeiras Ativos por Dia</h2>
     <div class="chart-legend">
       <span class="legend-item"><span class="legend-dot cbm"></span>CBM</span>
+      <span class="legend-item"><span class="legend-dot cb"></span>CB</span>
       <span class="legend-item"><span class="legend-dot cm"></span>CM</span>
-      <span class="legend-item"><span class="legend-dot esc"></span>Escavadeira</span>
+      <span class="legend-item"><span class="linha-legenda esc"></span>Escavadeiras (eixo direito)</span>
     </div>
-    <div id="chart-periodo-dia" class="stacked-chart"></div>
+    <p class="alertas-nota" style="margin-bottom:10px;">Colunas = caminhoes ativos no dia (empilhados por tipo). Linha verde = escavadeiras ativas, no eixo da direita.</p>
+    <div id="chart-periodo-dia" class="combo-chart"></div>
   </div>
 
   <div class="panel">
@@ -1059,19 +1067,15 @@ function preencherTabelaEscavadeiras(lista, idCorpo, idRodape, dataInicioKey) {
   const totalEscavadeiras = lista.length;
   const totalViagens = lista.reduce((s, e) => s + e.viagens, 0);
   const totalCaminhoes = lista.reduce((s, e) => s + e.caminhoes, 0);
-  const mediaPrimeira = lista.reduce((s, e) => s + e.primeira_min, 0) / totalEscavadeiras;
-  const mediaUltima = lista.reduce((s, e) => s + e.ultima_min, 0) / totalEscavadeiras;
-  const mediasIntervalo = lista.map(e => e.intervalo_medio).filter(v => v !== null && v !== undefined);
-  const mediaIntervalo = mediasIntervalo.length ? mediasIntervalo.reduce((a, b) => a + b, 0) / mediasIntervalo.length : null;
 
   const trTotal = document.createElement("tr");
   trTotal.innerHTML = `
     <td>Total (${totalEscavadeiras})</td>
     <td class="num">${totalViagens}</td>
     <td class="num">${totalCaminhoes}</td>
-    <td>${fmtHoraDeMinutos(mediaPrimeira, dataInicioKey)}</td>
-    <td>${fmtHoraDeMinutos(mediaUltima, dataInicioKey)}</td>
-    <td class="num">${fmtMin(mediaIntervalo)}</td>`;
+    <td></td>
+    <td></td>
+    <td></td>`;
   rodape.appendChild(trTotal);
 }
 
@@ -1120,32 +1124,38 @@ function renderizar(diaFiltro) {
 }
 
 // ---------------------------------------------------------------------
-// Filtro de dia operacional
+// Filtro de dia operacional (calendario)
 // ---------------------------------------------------------------------
-const selectDia = document.getElementById("filtro-dia");
-const optTodos = document.createElement("option");
-optTodos.value = "todos";
-optTodos.textContent = "Todos os dias";
-selectDia.appendChild(optTodos);
+const inputDia = document.getElementById("filtro-dia-input");
+const btnTodosDias = document.getElementById("btn-todos-dias");
 
-RAW.dias.forEach(diaIso => {
-  const [Y, M, D] = diaIso.split("-");
-  const opt = document.createElement("option");
-  opt.value = diaIso;
-  opt.textContent = `${D}/${M}/${Y}`;
-  selectDia.appendChild(opt);
+if (RAW.dias.length > 0) {
+  inputDia.min = RAW.dias[0];
+  inputDia.max = RAW.dias[RAW.dias.length - 1];
+}
+
+inputDia.addEventListener("change", () => {
+  if (!inputDia.value) return;
+  btnTodosDias.classList.remove("ativo");
+  renderizar(inputDia.value);
 });
 
-selectDia.addEventListener("change", () => renderizar(selectDia.value));
+btnTodosDias.addEventListener("click", () => {
+  inputDia.value = "";
+  btnTodosDias.classList.add("ativo");
+  renderizar("todos");
+});
 
 // estado inicial: se so existe um dia operacional, comeca ja filtrado
 // nele; caso contrario mostra todos os dias
 function estadoInicialViagens() {
   if (RAW.dias.length === 1) {
-    selectDia.value = RAW.dias[0];
+    inputDia.value = RAW.dias[0];
+    btnTodosDias.classList.remove("ativo");
     renderizar(RAW.dias[0]);
   } else {
-    selectDia.value = "todos";
+    inputDia.value = "";
+    btnTodosDias.classList.add("ativo");
     renderizar("todos");
   }
 }
@@ -1181,6 +1191,7 @@ function computarPeriodo(dataIni, dataFim) {
     return {
       dia,
       cbm: new Set(doDia.filter(r => r.familia === "CBM").map(r => r.prefixo)).size,
+      cb: new Set(doDia.filter(r => r.familia === "CB").map(r => r.prefixo)).size,
       cm: new Set(doDia.filter(r => r.familia === "CM").map(r => r.prefixo)).size,
       esc: new Set(doDia.filter(r => r.escavadeira).map(r => r.escavadeira)).size,
       turno1: doDia.filter(r => r.turno === 1).length,
@@ -1235,33 +1246,131 @@ function computarPeriodo(dataIni, dataFim) {
   return { porDia, porLocal, porEscavadeira, porCaminhao, registrosFiltrados: registros };
 }
 
-function renderStackedChart(porDia, idContainer) {
+function renderComboChartEquipamentos(porDia, idContainer) {
   const container = document.getElementById(idContainer);
   container.innerHTML = "";
   if (porDia.length === 0) {
     container.innerHTML = `<div style="color:var(--text-dim); font-size:13px;">Sem dados no periodo</div>`;
     return;
   }
-  const maxTotal = Math.max(...porDia.map(d => d.cbm + d.cm + d.esc), 1);
-  porDia.forEach(d => {
-    const col = document.createElement("div");
-    col.className = "stacked-col";
-    const alturaCbm = (d.cbm / maxTotal) * 100;
-    const alturaCm = (d.cm / maxTotal) * 100;
-    const alturaEsc = (d.esc / maxTotal) * 100;
-    const [, M, D] = d.dia.split("-");
-    col.innerHTML = `
-      <div class="stacked-bars">
-        <div class="stacked-seg cbm" style="height:${alturaCbm}%"></div>
-        <div class="stacked-seg cm" style="height:${alturaCm}%"></div>
-        <div class="stacked-seg esc" style="height:${alturaEsc}%"></div>
-      </div>
-      <div class="stacked-label">${D}/${M}</div>`;
-    const tooltipHtml = `<strong>${D}/${M}</strong><br>Caminhoes CBM: ${d.cbm}<br>Caminhoes CM: ${d.cm}<br>Escavadeiras ativas: ${d.esc}`;
-    col.addEventListener("mouseenter", evt => mostrarTooltipGlobal(evt, tooltipHtml));
-    col.addEventListener("mousemove", evt => mostrarTooltipGlobal(evt, tooltipHtml));
-    col.addEventListener("mouseleave", esconderTooltipGlobal);
-    container.appendChild(col);
+
+  // mede a largura real do container para o viewBox (evita distorcer
+  // texto/formas ao esticar o SVG de forma nao-uniforme)
+  const larguraMedida = (container.clientWidth || (container.getBoundingClientRect && container.getBoundingClientRect().width) || 900);
+  const W = Math.max(500, Math.round(larguraMedida));
+  const H = 340;
+  const margin = { left: 46, right: 60, top: 26, bottom: 70 };
+  const plotW = W - margin.left - margin.right;
+  const plotH = H - margin.top - margin.bottom;
+  const numDias = porDia.length;
+  const slot = plotW / numDias;
+  const barWidth = Math.max(2, Math.min(slot * 0.55, 40));
+
+  const maxBar = Math.max(...porDia.map(d => d.cbm + d.cb + d.cm), 1);
+  const maxLinha = Math.max(...porDia.map(d => d.esc), 1);
+
+  const pontos = porDia.map((d, i) => Object.assign({}, d, { x: margin.left + (i + 0.5) * slot }));
+
+  function yBar(v) { return margin.top + plotH - (v / maxBar) * plotH; }
+  function yLinha(v) { return margin.top + plotH - (v / maxLinha) * plotH; }
+
+  // barras empilhadas: CBM embaixo, CB no meio, CM em cima
+  let barrasSvg = "";
+  pontos.forEach(p => {
+    const xBar = p.x - barWidth / 2;
+    const segmentos = [
+      { valor: p.cbm, cor: "#3b82f6" },
+      { valor: p.cb, cor: "#14b8a6" },
+      { valor: p.cm, cor: "#f59e0b" },
+    ];
+    let acumulado = 0;
+    segmentos.forEach(seg => {
+      const yIni = yBar(acumulado);
+      acumulado += seg.valor;
+      const yFim = yBar(acumulado);
+      const altura = yIni - yFim;
+      if (altura > 0.2) {
+        barrasSvg += `<rect x="${xBar}" y="${yFim}" width="${barWidth}" height="${altura}" fill="${seg.cor}" opacity="0.9"/>`;
+      }
+    });
+  });
+
+  // linha de escavadeiras ativas, com marcadores, no eixo secundario
+  const ptsLinha = pontos.map(p => `${p.x},${yLinha(p.esc)}`).join(" ");
+  const linhaEsc = `<polyline points="${ptsLinha}" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+  let marcadoresSvg = "";
+  pontos.forEach(p => {
+    marcadoresSvg += `<circle cx="${p.x}" cy="${yLinha(p.esc)}" r="3.5" fill="#22c55e" stroke="#171d2b" stroke-width="1.5"/>`;
+  });
+
+  let gridSvg = "";
+  const niveis = 4;
+  for (let i = 0; i <= niveis; i++) {
+    const frac = i / niveis;
+    const y = margin.top + plotH - frac * plotH;
+    const valEsq = Math.round(maxBar * frac);
+    const valDir = Math.round(maxLinha * frac);
+    gridSvg += `<line x1="${margin.left}" y1="${y}" x2="${W - margin.right}" y2="${y}" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>`;
+    gridSvg += `<text x="${margin.left - 8}" y="${y + 4}" text-anchor="end" font-size="10" fill="#9aa5b8">${valEsq}</text>`;
+    gridSvg += `<text x="${W - margin.right + 8}" y="${y + 4}" text-anchor="start" font-size="10" fill="#22c55e">${valDir}</text>`;
+  }
+
+  const passo = Math.max(1, Math.ceil(numDias / 20));
+  let labelsSvg = "";
+  pontos.forEach((p, i) => {
+    if (i % passo !== 0 && i !== numDias - 1) return;
+    const [, M, D] = p.dia.split("-");
+    labelsSvg += `<text x="${p.x}" y="${H - margin.bottom + 16}" text-anchor="end" font-size="10" fill="#9aa5b8" transform="rotate(-45 ${p.x} ${H - margin.bottom + 16})">${D}/${M}</text>`;
+  });
+
+  const eixosSvg = `<text x="${margin.left}" y="14" font-size="10" fill="#9aa5b8">Caminhoes ativos</text>
+    <text x="${W - margin.right}" y="14" text-anchor="end" font-size="10" fill="#22c55e">Escavadeiras ativas</text>`;
+
+  let hoverSvg = "";
+  pontos.forEach((p, i) => {
+    hoverSvg += `<rect class="combo-hover" data-idx="${i}" x="${p.x - slot / 2}" y="${margin.top}" width="${slot}" height="${plotH}" fill="transparent"/>`;
+  });
+
+  container.innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}">
+      ${eixosSvg}
+      ${gridSvg}
+      ${barrasSvg}
+      ${linhaEsc}
+      ${marcadoresSvg}
+      ${labelsSvg}
+      ${hoverSvg}
+    </svg>
+    <div class="combo-tooltip" id="${idContainer}-tooltip"></div>`;
+
+  const tooltip = document.getElementById(`${idContainer}-tooltip`);
+
+  function conteudoTooltip(p) {
+    const [, M, D] = p.dia.split("-");
+    return `<strong>${D}/${M}</strong><br>
+      CBM: <b>${p.cbm}</b> &middot; CB: <b>${p.cb}</b> &middot; CM: <b>${p.cm}</b><br>
+      Escavadeiras: <b style="color:#22c55e">${p.esc}</b>`;
+  }
+
+  function mostrarTooltip(evt, idx) {
+    const p = pontos[idx];
+    const rect = container.getBoundingClientRect ? container.getBoundingClientRect() : { left: 0, top: 0, width: W, height: H };
+    const relX = evt.clientX - rect.left;
+    const relY = evt.clientY - rect.top;
+    tooltip.innerHTML = conteudoTooltip(p);
+    tooltip.style.display = "block";
+    const larguraTooltip = 210;
+    const left = Math.min(relX + 14, Math.max(0, rect.width - larguraTooltip));
+    tooltip.style.left = left + "px";
+    tooltip.style.top = Math.max(0, relY - 10) + "px";
+  }
+
+  const hovers = container.querySelectorAll(".combo-hover");
+  hovers.forEach(el => {
+    const idx = parseInt(el.getAttribute ? el.getAttribute("data-idx") : el.dataset.idx, 10);
+    el.addEventListener("mouseenter", evt => mostrarTooltip(evt, idx));
+    el.addEventListener("mousemove", evt => mostrarTooltip(evt, idx));
+    el.addEventListener("mouseleave", () => { tooltip.style.display = "none"; });
   });
 }
 
@@ -1645,7 +1754,7 @@ function renderizarPeriodo() {
     return;
   }
   periodoRegistrosAtual = pr.registrosFiltrados;
-  renderStackedChart(pr.porDia, "chart-periodo-dia");
+  renderComboChartEquipamentos(pr.porDia, "chart-periodo-dia");
   renderHBarChart(pr.porLocal, "chart-periodo-local", false, selecionarLocal);
   fecharDrilldownLocal();
   renderVBarChart(pr.porEscavadeira, "chart-periodo-escavadeira", selecionarEscavadeira);
