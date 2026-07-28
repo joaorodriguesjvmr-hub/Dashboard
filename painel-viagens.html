@@ -448,7 +448,7 @@
     <div class="sub">Obra: SINOP</div>
   </div>
   <div class="meta">
-    Gerado em 28/07/2026 08:26<br>
+    Gerado em 28/07/2026 08:34<br>
     Fonte: Viagens.xlsx
   </div>
 </header>
@@ -964,10 +964,21 @@ function computar(diaFiltro) {
 
   function limiteFimTurno(ultimaMomento, turno) {
     const y = ultimaMomento.getFullYear(), m = ultimaMomento.getMonth(), d = ultimaMomento.getDate();
-    if (turno === 1) return new Date(y, m, d, 17, 0, 0);
-    return ultimaMomento.getHours() >= 18
-      ? new Date(y, m, d + 1, 4, 0, 0)
-      : new Date(y, m, d, 4, 0, 0);
+    if (turno === 1) {
+      // turno diurno: aos sabados termina as 16:00; nos demais dias, 17:00
+      const ehSabado = ultimaMomento.getDay() === 6;
+      return new Date(y, m, d, ehSabado ? 16 : 17, 0, 0);
+    }
+    // turno noturno: o horario de fim depende do dia em que o turno
+    // COMECOU (a noite) - se a ultima viagem ja foi de madrugada, o
+    // turno comecou no dia civil anterior
+    const aindaNaNoite = ultimaMomento.getHours() >= 18;
+    const diaInicioTurno = new Date(y, m, d - (aindaNaNoite ? 0 : 1));
+    const ehSabado = diaInicioTurno.getDay() === 6;
+    const horaFim = ehSabado ? 2 : 4;
+    return aindaNaNoite
+      ? new Date(y, m, d + 1, horaFim, 0, 0)
+      : new Date(y, m, d, horaFim, 0, 0);
   }
 
   function construirLinhaCaminhao(prefixo, familia, lista, turno) {
