@@ -448,7 +448,7 @@
     <div class="sub">Obra: SINOP</div>
   </div>
   <div class="meta">
-    Gerado em 28/07/2026 08:15<br>
+    Gerado em 28/07/2026 08:26<br>
     Fonte: Viagens.xlsx
   </div>
 </header>
@@ -1307,15 +1307,30 @@ btnTodosDias.addEventListener("click", () => {
   renderizar("todos");
 });
 
+// data de "ontem" em relacao ao dia real do navegador (nao ao dia em
+// que a planilha foi gerada), no formato YYYY-MM-DD usado pelo input
+function calcularDataOntem() {
+  const hoje = new Date();
+  const ontem = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() - 1);
+  const Y = ontem.getFullYear();
+  const M = String(ontem.getMonth() + 1).padStart(2, "0");
+  const D = String(ontem.getDate()).padStart(2, "0");
+  return `${Y}-${M}-${D}`;
+}
+
 function estadoInicialViagens() {
   if (RAW.dias.length === 1) {
     inputDia.value = RAW.dias[0];
     btnTodosDias.classList.remove("ativo");
     renderizar(RAW.dias[0]);
   } else {
-    inputDia.value = "";
-    btnTodosDias.classList.add("ativo");
-    renderizar("todos");
+    // por padrao o filtro comeca no dia anterior (ontem em relacao a
+    // data atual do navegador); se nao houver viagens nesse dia, o
+    // proprio renderizar() ja trata o estado vazio normalmente
+    const ontem = calcularDataOntem();
+    inputDia.value = ontem;
+    btnTodosDias.classList.remove("ativo");
+    renderizar(ontem);
   }
 }
 estadoInicialViagens();
