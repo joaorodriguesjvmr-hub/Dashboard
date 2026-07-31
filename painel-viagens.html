@@ -221,6 +221,7 @@
   tbody tr.familia-cm td { background: rgba(245,158,11,0.09); }
   tr.familia-cm td:first-child { border-left: 2px solid rgba(245,158,11,0.45); }
   tr.divisor-familia td { border-top: 1px dashed rgba(245,158,11,0.3); }
+  tbody tr.selecionado td { background: rgba(59,130,246,0.16); box-shadow: inset 0 0 0 1px rgba(59,130,246,0.5); }
 
   .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
   .bar-label { width: 90px; font-size: 12px; color: var(--text-dim); flex-shrink: 0; }
@@ -338,6 +339,7 @@
   }
 
   .drilldown-panel { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .drilldown-panel.drilldown-substitui { margin-top: 0; padding-top: 0; border-top: none; }
   .drilldown-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
   .drilldown-titulo { font-size: 12px; color: var(--text); font-weight: 600; }
   .drilldown-arvores { display: flex; flex-direction: column; gap: 20px; }
@@ -469,7 +471,7 @@
     <div class="sub">Obra: SINOP</div>
   </div>
   <div class="meta">
-    Gerado em 31/07/2026 08:43<br>
+    Gerado em 31/07/2026 13:17<br>
     Fonte: Viagens.xlsx
   </div>
 </header>
@@ -592,7 +594,8 @@
 
 <div class="panel">
   <h2>Detalhamento por Caminhao - Turno 1 (Diurno)</h2>
-  <div class="table-scroll">
+  <p class="alertas-nota" style="margin-bottom:10px;">Clique em um caminhao para ver todas as viagens dele neste turno, ordenadas por horario.</p>
+  <div class="table-scroll" id="tabela-caminhoes-t1-wrapper">
   <table>
     <thead id="thead-caminhoes-t1">
       <tr><th data-campo="prefixo" data-tipo="texto">Prefixo</th><th data-campo="viagens" data-tipo="numero">Viagens</th><th data-campo="primeira" data-tipo="hora">1a Viagem</th><th data-campo="primeira_apos_refeicao" data-tipo="hora">1a Viagem apos o Almoco</th><th data-campo="ultima" data-tipo="hora">Ultima Viagem</th><th data-campo="intervalo_medio" data-tipo="numero">Interv. medio entre viagens</th><th data-campo="toneladas_valor" data-tipo="numero">Toneladas</th></tr>
@@ -601,11 +604,24 @@
     <tfoot id="tbl-caminhoes-t1-total"></tfoot>
   </table>
   </div>
+  <div id="drilldown-caminhao-t1" class="drilldown-panel drilldown-substitui" style="display:none;">
+    <div class="drilldown-header">
+      <div id="drilldown-caminhao-t1-titulo" class="drilldown-titulo"></div>
+      <button id="drilldown-caminhao-t1-fechar" class="btn-fechar" type="button">&#9664; Voltar</button>
+    </div>
+    <div class="lista-carregamentos">
+      <table>
+        <thead><tr><th>Hora</th><th>Local</th><th>Escavadeira</th></tr></thead>
+        <tbody id="drilldown-caminhao-t1-lista"></tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
 <div class="panel">
   <h2>Detalhamento por Caminhao - Turno 2 (Noturno)</h2>
-  <div class="table-scroll">
+  <p class="alertas-nota" style="margin-bottom:10px;">Clique em um caminhao para ver todas as viagens dele neste turno, ordenadas por horario.</p>
+  <div class="table-scroll" id="tabela-caminhoes-t2-wrapper">
   <table>
     <thead id="thead-caminhoes-t2">
       <tr><th data-campo="prefixo" data-tipo="texto">Prefixo</th><th data-campo="viagens" data-tipo="numero">Viagens</th><th data-campo="primeira" data-tipo="hora">1a Viagem</th><th data-campo="primeira_apos_refeicao" data-tipo="hora">1a Viagem apos o Jantar</th><th data-campo="ultima" data-tipo="hora">Ultima Viagem</th><th data-campo="intervalo_medio" data-tipo="numero">Interv. medio entre viagens</th><th data-campo="toneladas_valor" data-tipo="numero">Toneladas</th></tr>
@@ -613,6 +629,18 @@
     <tbody id="tbl-caminhoes-t2"></tbody>
     <tfoot id="tbl-caminhoes-t2-total"></tfoot>
   </table>
+  </div>
+  <div id="drilldown-caminhao-t2" class="drilldown-panel drilldown-substitui" style="display:none;">
+    <div class="drilldown-header">
+      <div id="drilldown-caminhao-t2-titulo" class="drilldown-titulo"></div>
+      <button id="drilldown-caminhao-t2-fechar" class="btn-fechar" type="button">&#9664; Voltar</button>
+    </div>
+    <div class="lista-carregamentos">
+      <table>
+        <thead><tr><th>Hora</th><th>Local</th><th>Escavadeira</th></tr></thead>
+        <tbody id="drilldown-caminhao-t2-lista"></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
@@ -1183,6 +1211,7 @@ function preencherTabelaCaminhoes(lista, idCorpo, idRodape) {
   const rodape = document.getElementById(idRodape);
   corpo.innerHTML = "";
   rodape.innerHTML = "";
+  const turno = idCorpo.indexOf("-t1") !== -1 ? 1 : 2;
 
   if (lista.length === 0) {
     corpo.innerHTML = `<tr><td colspan="7" style="color:var(--text-dim);">Nenhuma viagem neste turno</td></tr>`;
@@ -1197,6 +1226,7 @@ function preencherTabelaCaminhoes(lista, idCorpo, idRodape) {
     if (familiaAnterior !== null && c.familia !== familiaAnterior) classes.push("divisor-familia");
     familiaAnterior = c.familia;
     if (classes.length) tr.className = classes.join(" ");
+    tr.style.cursor = "pointer";
     tr.innerHTML = `
       <td>${c.prefixo}</td>
       <td class="num">${c.viagens}</td>
@@ -1205,6 +1235,7 @@ function preencherTabelaCaminhoes(lista, idCorpo, idRodape) {
       <td>${c.ultima}${c.alerta_fim_turno ? ' <span class="alerta-icon" title="Ultima viagem + intervalo medio termina mais de 30 min antes do fim do turno">&#9888;</span>' : ''}</td>
       <td class="num">${fmtMin(c.intervalo_medio)}</td>
       <td class="num">${c.toneladas}</td>`;
+    tr.addEventListener("click", () => selecionarCaminhaoDetalhe(c.prefixo, turno, tr, corpo));
     corpo.appendChild(tr);
   });
 
@@ -1223,6 +1254,59 @@ function preencherTabelaCaminhoes(lista, idCorpo, idRodape) {
     <td class="num">${fmtMin(mediaGeral)}</td>
     <td class="num">${totalToneladas.toFixed(1)} t</td>`;
   rodape.appendChild(trTotal);
+}
+
+// ---------------------------------------------------------------------
+// Drill-down: todas as viagens de um caminhao dentro do turno, ao
+// clicar na linha dele nas tabelas "Detalhamento por Caminhao"
+// ---------------------------------------------------------------------
+let caminhaoDetalheSelecionado = { 1: null, 2: null };
+
+function fecharDrilldownCaminhaoDetalhe(turno) {
+  caminhaoDetalheSelecionado[turno] = null;
+  const corpo = document.getElementById(`tbl-caminhoes-t${turno}`);
+  corpo.querySelectorAll("tr").forEach(tr => tr.classList.remove("selecionado"));
+  document.getElementById(`drilldown-caminhao-t${turno}`).style.display = "none";
+  document.getElementById(`tabela-caminhoes-t${turno}-wrapper`).style.display = "";
+}
+
+function renderizarDrilldownCaminhaoDetalhe(turno) {
+  const painel = document.getElementById(`drilldown-caminhao-t${turno}`);
+  const wrapperTabela = document.getElementById(`tabela-caminhoes-t${turno}-wrapper`);
+  const prefixo = caminhaoDetalheSelecionado[turno];
+  if (!prefixo) { painel.style.display = "none"; wrapperTabela.style.display = ""; return; }
+  painel.style.display = "block";
+  wrapperTabela.style.display = "none";
+
+  const viagens = registrosDiaAtual
+    .filter(r => r.prefixo === prefixo && r.turno === turno)
+    .map(r => Object.assign({}, r, { _ts: parseTs(r) }))
+    .sort((a, b) => a._ts - b._ts);
+
+  document.getElementById(`drilldown-caminhao-t${turno}-titulo`).textContent =
+    `${prefixo} - ${viagens.length} viagem(ns) neste turno`;
+
+  const dataRef = viagens.length ? dateKey(viagens[0]._ts) : null;
+  const corpo = document.getElementById(`drilldown-caminhao-t${turno}-lista`);
+  corpo.innerHTML = "";
+  if (viagens.length === 0) {
+    corpo.innerHTML = `<tr><td colspan="3" style="color:var(--text-dim);">Nenhuma viagem encontrada</td></tr>`;
+    return;
+  }
+  viagens.forEach(r => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${fmtHora(r._ts, dataRef)}</td><td>${r.local || "-"}</td><td>${r.escavadeira || "-"}</td>`;
+    corpo.appendChild(tr);
+  });
+}
+
+function selecionarCaminhaoDetalhe(prefixo, turno, trEl, corpoContainer) {
+  const jaSelecionado = trEl.classList.contains("selecionado");
+  corpoContainer.querySelectorAll("tr").forEach(tr => tr.classList.remove("selecionado"));
+  if (jaSelecionado) { fecharDrilldownCaminhaoDetalhe(turno); return; }
+  trEl.classList.add("selecionado");
+  caminhaoDetalheSelecionado[turno] = prefixo;
+  renderizarDrilldownCaminhaoDetalhe(turno);
 }
 
 function preencherTabelaEscavadeiras(lista, idCorpo, idRodape, dataInicioKey) {
@@ -1321,6 +1405,8 @@ function renderizar(diaFiltro) {
   filtroFamiliaCaminhoesTab1 = null;
   filtroEscavadeiraCaminhoesTab1 = null;
   document.getElementById("filtro-caminhoes-familia").querySelectorAll(".btn-familia").forEach(b => b.classList.remove("ativo"));
+  fecharDrilldownCaminhaoDetalhe(1);
+  fecharDrilldownCaminhaoDetalhe(2);
 
   if (!st) {
     ["kpi-total-viagens", "kpi-total-caminhoes", "kpi-total-escavadeiras", "kpi-total-toneladas",
@@ -2058,6 +2144,8 @@ estadoInicialPeriodo();
 
 document.getElementById("btn-reset-periodo").addEventListener("click", estadoInicialPeriodo);
 document.getElementById("drilldown-fechar").addEventListener("click", fecharDrilldownEscavadeira);
+document.getElementById("drilldown-caminhao-t1-fechar").addEventListener("click", () => fecharDrilldownCaminhaoDetalhe(1));
+document.getElementById("drilldown-caminhao-t2-fechar").addEventListener("click", () => fecharDrilldownCaminhaoDetalhe(2));
 document.getElementById("drilldown-local-fechar").addEventListener("click", fecharDrilldownLocal);
 
 document.getElementById("ordenacao-local").querySelectorAll(".btn-familia").forEach(btn => {
