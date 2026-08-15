@@ -158,6 +158,20 @@
 
   .kpi-card.open .value { color: var(--open); }
   .kpi-card.resolved .value { color: var(--resolved); }
+  .kpi-card.aberto-periodo .value { color: #111111; }
+  .kpi-card.aberto-periodo-pendente { background: #FEE2E2; border: 1px solid #FCA5A5; }
+  .kpi-card.aberto-periodo-pendente .label { color: #991B1B; }
+  .kpi-card.aberto-periodo-pendente .value { color: #991B1B; }
+
+  .kpi-grid.kpi-linha-unica {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 10px;
+  }
+  .kpi-grid.kpi-linha-unica .kpi-card {
+    flex: 1 1 0;
+    min-width: 0;
+  }
   .kpi-card.embargo, .kpi-card.embargo-resolvido {
     background: var(--red-bg);
     border: 2px solid var(--red-text);
@@ -545,12 +559,12 @@
 
   <header class="top">
     <div>
-      <div class="eyebrow">Obra 419 &middot; Sinop &middot; Tripoloni Construtora</div>
+      <div class="eyebrow">Obra 419 · Sinop · Tripoloni Construtora</div>
       <h1 id="titulo-principal">Painel de Desvios</h1>
     </div>
     <div class="updated">
       Atualizado em<br>
-      <span class="num">15/08/2026 14:44</span>
+      <span class="num">15/08/2026 16:29</span>
       <div class="botoes-print">
         <button class="ghost btn-imprimir" id="btn-imprimir" type="button">Imprimir relatorio</button>
         <button class="ghost btn-imprimir" id="btn-imprimir-aberto" type="button">Imprimir lista de desvios em aberto</button>
@@ -626,14 +640,18 @@
       <button class="primary" id="btn-aplicar">Aplicar</button>
       <button class="ghost" id="btn-limpar">Tudo</button>
     </div>
-    <div class="kpi-grid" style="margin-bottom:14px;">
+    <div class="kpi-grid kpi-linha-unica" style="margin-bottom:14px;">
       <div class="kpi-card open">
         <div class="label">Aguardando Solucao + Em Analise (agora)</div>
         <div class="value num" id="kpi-aberto-agora-resp">0</div>
       </div>
-      <div class="kpi-card open">
+      <div class="kpi-card aberto-periodo">
         <div class="label">Abertos no periodo</div>
         <div class="value num" id="kpi-aberto-periodo">0</div>
+      </div>
+      <div class="kpi-card aberto-periodo-pendente">
+        <div class="label">Abertos no periodo ainda nao resolvidos</div>
+        <div class="value num" id="kpi-aberto-periodo-pendente">0</div>
       </div>
       <div class="kpi-card resolved">
         <div class="label">Resolvidos no periodo (abertos em periodo anterior)</div>
@@ -713,6 +731,7 @@
       <span><span class="dot open"></span>Abertos (linha = acumulado, barra = do periodo)</span>
       <span><span class="dot resolved"></span>Resolvidos (linha = acumulado, barra = do periodo)</span>
       <span><span class="dot" style="background:#6D28D9"></span>Tempo medio de resolucao (dias)</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:#FEE2E2;border:1.5px solid #B91C1C;display:inline-block;"></span>Abertos no periodo ainda pendentes</span>
     </div>
     <p class="filtro-nota">O filtro de setor abaixo recalcula so a linha de tempo medio de resolucao.</p>
     <div class="filtro-discreto somente-tela" id="acumulado-setor-chips"></div>
@@ -1410,12 +1429,16 @@
 
     const abertosPorChave = {};
     const resolvidosPorChave = {};
+    const pendentesPorChave = {};
     const somaTempoPorChave = {};
     const qtdTempoPorChave = {};
     dados.forEach(d => {
       if (d.data_criacao && d.data_criacao >= inicioChart && d.data_criacao <= fimChart) {
         const chave = chaveDoBucket(d.data_criacao, granularidade);
         abertosPorChave[chave] = (abertosPorChave[chave] || 0) + 1;
+        // Dentre os abertos nesse bucket, quantos continuam nao resolvidos
+        // ate agora (status atual - nao no momento da abertura).
+        if (!d.resolvido) pendentesPorChave[chave] = (pendentesPorChave[chave] || 0) + 1;
       }
       if (d.resolvido && d.data_finalizacao && d.data_finalizacao >= inicioChart && d.data_finalizacao <= fimChart) {
         const chave = chaveDoBucket(d.data_finalizacao, granularidade);
@@ -1436,6 +1459,7 @@
     const serieAcumResolvido = [];
     const serieBarAberto = [];
     const serieBarResolvido = [];
+    const serieBarPendentes = [];
     const serieTempoMedio = [];
     chaves.forEach(chave => {
       const a = abertosPorChave[chave] || 0;
@@ -1446,14 +1470,49 @@
       serieAcumResolvido.push(acResolvido);
       serieBarAberto.push(a);
       serieBarResolvido.push(r);
+      serieBarPendentes.push(pendentesPorChave[chave] || 0);
       const qtdT = qtdTempoPorChave[chave] || 0;
       serieTempoMedio.push(qtdT > 0 ? (somaTempoPorChave[chave] / qtdT) : null);
     });
 
-    container.innerHTML = construirGraficoCombinado(
-      chaves, serieAcumAberto, serieAcumResolvido, serieBarAberto, serieBarResolvido, serieTempoMedio, formatarRotulo, granularidade
-    );
+    container.innerHTML =
+      construirFaixaPendentes(chaves, serieBarPendentes, formatarRotulo) +
+      construirGraficoCombinado(
+        chaves, serieAcumAberto, serieAcumResolvido, serieBarAberto, serieBarResolvido, serieTempoMedio, formatarRotulo, granularidade
+      );
     habilitarTooltipContainer(container);
+  }
+
+  // Faixa fina, colada logo acima do grafico combinado (mesma largura e
+  // mesmas margens esquerda/direita - portanto o mesmo eixo horizontal),
+  // mostrando so o numero de desvios que foram abertos em cada bucket e
+  // continuam pendentes (nao resolvidos) ate agora.
+  function construirFaixaPendentes(chaves, seriePendentes, formatarRotulo) {
+    const largura = 900;
+    const margemEsq = 40, margemDir = 58; // identico ao construirGraficoCombinado, para alinhar
+    const areaLargura = largura - margemEsq - margemDir;
+    const altura = 30;
+    const n = chaves.length;
+    const escalaX = i => margemEsq + (n <= 1 ? areaLargura / 2 : (i / (n - 1)) * areaLargura);
+
+    const itensSvg = chaves.map((chave, i) => {
+      const v = seriePendentes[i] || 0;
+      const x = escalaX(i);
+      const tt = `<strong>${escapeAttr(formatarRotulo(chave))}</strong><br>Abertos no periodo ainda pendentes: <strong>${v}</strong>`;
+      if (!v) {
+        // Ainda desenha uma area invisivel, para o tooltip funcionar mesmo
+        // nos buckets sem pendentes (mostra "0").
+        return `<rect x="${(x - 14).toFixed(1)}" y="0" width="28" height="${altura}" fill="transparent" pointer-events="all" data-tooltip="${tt}"/>`;
+      }
+      return `<circle cx="${x.toFixed(1)}" cy="${(altura / 2).toFixed(1)}" r="9.5" fill="#FEE2E2" stroke="#B91C1C" stroke-width="1.2" pointer-events="all" data-tooltip="${tt}"/>` +
+             `<text x="${x.toFixed(1)}" y="${(altura / 2 + 3.5).toFixed(1)}" font-size="10" font-weight="700" fill="#B91C1C" text-anchor="middle" pointer-events="none">${v}</text>`;
+    }).join('');
+
+    return `
+      <svg viewBox="0 0 ${largura} ${altura}" width="100%" height="${altura}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+        ${itensSvg}
+      </svg>
+    `;
   }
 
   function construirRotuloEixoXMultilinha(x, altura, margemBaixo, chaveISO, granularidade, fonte) {
@@ -1988,6 +2047,7 @@
     document.getElementById('titulo-data-periodo-2').textContent = descPeriodo(inicio, fim);
 
     let abertosPeriodo = 0, resolvidosPeriodo = 0, resolvidosAnterior = 0, resolvidosMesmo = 0, embargosPeriodo = 0;
+    let abertosPeriodoPendentes = 0;
     const porResp = {};
 
     // Snapshot "ao vivo" por responsavel, separado por status especifico
@@ -2013,6 +2073,10 @@
       if (abriu) {
         abertosPeriodo++;
         porResp[d.responsavel].abertoPeriodo++;
+        // Dentre os abertos no periodo, quantos continuam nao resolvidos
+        // (status atual, nao no momento da abertura) - mostra o quanto do
+        // que foi aberto no periodo ainda esta pendente.
+        if (!d.resolvido) abertosPeriodoPendentes++;
       }
       if (resolveu) {
         resolvidosPeriodo++;
@@ -2028,6 +2092,7 @@
 
     document.getElementById('kpi-aberto-agora-resp').textContent = abertoAgoraTotal;
     document.getElementById('kpi-aberto-periodo').textContent = abertosPeriodo;
+    document.getElementById('kpi-aberto-periodo-pendente').textContent = abertosPeriodoPendentes;
     document.getElementById('kpi-resolvido-anterior').textContent = resolvidosAnterior;
     document.getElementById('kpi-resolvido-mesmo').textContent = resolvidosMesmo;
     document.getElementById('kpi-resolvido-periodo').textContent = resolvidosPeriodo;
