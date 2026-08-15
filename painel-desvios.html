@@ -564,7 +564,7 @@
     </div>
     <div class="updated">
       Atualizado em<br>
-      <span class="num">15/08/2026 16:29</span>
+      <span class="num">15/08/2026 17:09</span>
       <div class="botoes-print">
         <button class="ghost btn-imprimir" id="btn-imprimir" type="button">Imprimir relatorio</button>
         <button class="ghost btn-imprimir" id="btn-imprimir-aberto" type="button">Imprimir lista de desvios em aberto</button>
@@ -650,8 +650,12 @@
         <div class="value num" id="kpi-aberto-periodo">0</div>
       </div>
       <div class="kpi-card aberto-periodo-pendente">
-        <div class="label">Abertos no periodo ainda nao resolvidos</div>
+        <div class="label">Pendentes do Periodo</div>
         <div class="value num" id="kpi-aberto-periodo-pendente">0</div>
+      </div>
+      <div class="kpi-card">
+        <div class="label">Status do Periodo (resolvidos / abertos)</div>
+        <div class="value num" id="kpi-status-periodo">0/0</div>
       </div>
       <div class="kpi-card resolved">
         <div class="label">Resolvidos no periodo (abertos em periodo anterior)</div>
@@ -2093,6 +2097,13 @@
     document.getElementById('kpi-aberto-agora-resp').textContent = abertoAgoraTotal;
     document.getElementById('kpi-aberto-periodo').textContent = abertosPeriodo;
     document.getElementById('kpi-aberto-periodo-pendente').textContent = abertosPeriodoPendentes;
+
+    // "Status do Periodo": dos desvios abertos no periodo, quantos ja foram
+    // resolvidos (em verde) sobre o total de abertos no periodo (em preto) -
+    // ex: "8/20".
+    const abertosResolvidos = abertosPeriodo - abertosPeriodoPendentes;
+    document.getElementById('kpi-status-periodo').innerHTML =
+      `<span style="color:var(--resolved)">${abertosResolvidos}</span><span style="color:#111111">/${abertosPeriodo}</span>`;
     document.getElementById('kpi-resolvido-anterior').textContent = resolvidosAnterior;
     document.getElementById('kpi-resolvido-mesmo').textContent = resolvidosMesmo;
     document.getElementById('kpi-resolvido-periodo').textContent = resolvidosPeriodo;
